@@ -994,26 +994,37 @@ function avgZ(...vals) {
 // Quantas das 7 avaliações estão preenchidas
 function entregasFeitas(mat) {
   const n = ctxNotas()[mat] || {};
-  return ['P1','P2','P3','T1','T2','T3','T4'].filter(k => n[k] !== undefined && n[k] !== '').length;
+  return TODOS_CAMPOS.filter(k => preenchido(n[k])).length;
+}
+
+// Campos de avaliação — semestre tem exatamente estes 7
+const CAMPOS_P = ['P1','P2','P3'];
+const CAMPOS_T = ['T1','T2','T3','T4'];
+const TODOS_CAMPOS = [...CAMPOS_P, ...CAMPOS_T];
+
+// Converte valor do campo: preenchido → número, vazio → 0
+function valOuZero(v) {
+  return (v !== undefined && v !== '' && !isNaN(parseFloat(v))) ? parseFloat(v) : 0;
+}
+
+// Verifica se campo foi preenchido
+function preenchido(v) {
+  return v !== undefined && v !== '' && !isNaN(parseFloat(v));
 }
 
 function calcNotas(mat) {
   const n  = ctxNotas()[mat] || {};
-  const MT = avg(n.T1, n.T2, n.T3, n.T4);
-  const N1 = avg(n.P1, n.P2);
-  const N2 = avg(MT,   n.P3);
-  const MF = avg(N1,   N2);
+  // Todos os campos vazios tratados como zero
+  const MT = (valOuZero(n.T1) + valOuZero(n.T2) + valOuZero(n.T3) + valOuZero(n.T4)) / 4;
+  const N1 = (valOuZero(n.P1) + valOuZero(n.P2)) / 2;
+  const N2 = (MT + valOuZero(n.P3)) / 2;
+  const MF = (N1 + N2) / 2;
   return { MT, N1, N2, MF };
 }
 
-// Calcula MF tratando vazios como zero — para projetar probabilidade
+// Alias — mesma lógica, mantido para compatibilidade com probBarHTML
 function calcProjecao(mat) {
-  const n   = ctxNotas()[mat] || {};
-  const MT  = avgZ(n.T1, n.T2, n.T3, n.T4);
-  const N1  = avgZ(n.P1, n.P2);
-  const N2  = avgZ(MT,   n.P3);
-  const MFz = (N1 + N2) / 2;
-  return MFz;
+  return calcNotas(mat).MF;
 }
 
 // Gera o HTML da barra de probabilidade
@@ -1022,8 +1033,8 @@ function probBarHTML(mat) {
   const campos  = ['P1','P2','P3','T1','T2','T3','T4'];
   const feitas  = campos.filter(k => n[k] !== undefined && n[k] !== '').length;
   const total   = campos.length;
-  const { MF }  = calcNotas(mat);
-  const proj    = calcProjecao(mat);
+  const { MF, MT, N1, N2 } = calcNotas(mat);
+  const proj    = MF;   // calcNotas já trata vazios como zero
   const pct     = Math.min(100, Math.round((proj / 10) * 100));
   const aprovMin = 60; // 60% = nota 6
 
@@ -1057,9 +1068,11 @@ function probBarHTML(mat) {
   </div>`;
 }
 
-function fmt(v) {
+function fmt(v, mostrarZero) {
   if (v === null || v === undefined) return '—';
-  return parseFloat(v).toFixed(2);
+  const n = parseFloat(v);
+  if (!mostrarZero && n === 0) return '—';   // campo vazio exibe — em vez de 0.00
+  return n.toFixed(2);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1120,10 +1133,10 @@ function renderNotas() {
             onchange="onNotaChange(this)"
             oninput="this.className='nota'+(this.value!==''?' filled':'')">
         </td>`).join('')}
-      <td class="calc">${fmt(MT)}</td>
-      <td class="calc">${fmt(N1)}</td>
-      <td class="calc">${fmt(N2)}</td>
-      <td class="calc ${mfCls}" style="font-size:.88rem">${fmt(MF)}</td>
+      <td class="calc">${fmt(MT, true)}</td>
+      <td class="calc">${fmt(N1, true)}</td>
+      <td class="calc">${fmt(N2, true)}</td>
+      <td class="calc ${mfCls}" style="font-size:.88rem">${fmt(MF, true)}</td>
     `;
     body.appendChild(tr);
   });
@@ -1140,18 +1153,20 @@ function onNotaChange(input) {
   ctxNotas()[mat][campo] = val === '' ? '' : parseFloat(val);
   const { MT, N1, N2, MF } = calcNotas(mat);
   const cells = input.closest('tr').querySelectorAll('.calc');
-  cells[0].textContent = fmt(MT);
-  cells[1].textContent = fmt(N1);
-  cells[2].textContent = fmt(N2);
-  cells[3].textContent = fmt(MF);
-  cells[3].className   = 'calc ' + (MF===null?'':(MF>=5?'ok':'fail'));
+  cells[0].textContent = fmt(MT, true);
+  cells[1].textContent = fmt(N1, true);
+  cells[2].textContent = fmt(N2, true);
+  cells[3].textContent = fmt(MF, true);
+  cells[3].className   = 'calc ' + (MF >= 6 ? 'ok' : 'fail');
   saveAll();
 }
 
 function renderStatsNotas(alunos) {
-  const mfs = alunos.map(a => calcNotas(a.matricula).MF).filter(v => v !== null);
-  const aprov = mfs.filter(v => v >= 6).length;
-  const media = mfs.length ? mfs.reduce((a,b)=>a+b,0)/mfs.length : null;
+  // MF sempre calculada (vazios = zero) — stats só contam quem tem ao menos 1 nota
+  const comNotas = alunos.filter(a => entregasFeitas(a.matricula) > 0);
+  const mfs      = comNotas.map(a => calcNotas(a.matricula).MF);
+  const aprov    = mfs.filter(v => v >= 6).length;
+  const media    = mfs.length ? mfs.reduce((a,b)=>a+b,0)/mfs.length : null;
   document.getElementById('stats-notas').innerHTML = `
     <div class="stat-box"><div class="val">${alunos.length}</div><div class="lbl">Alunos</div></div>
     <div class="stat-box"><div class="val" style="color:var(--accent2)">${aprov}</div><div class="lbl">Aprovados</div></div>
@@ -1413,7 +1428,7 @@ function renderRelatorio() {
         <td class="calc">${fmt(MT)}</td>
         <td class="calc">${fmt(N1)}</td>
         <td class="calc">${fmt(N2)}</td>
-        <td class="calc ${mfCls}">${feitas===7&&MF!==null?MF.toFixed(2):'—'}</td>
+        <td class="calc ${mfCls}">${MF.toFixed(2)}</td>
         <td>${probBarHTML(a.matricula)}</td>`;
       tbody.appendChild(tr);
     });
