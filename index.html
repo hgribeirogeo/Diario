@@ -505,14 +505,24 @@
 
     <div class="table-wrap">
       <table>
-        <thead><tr>
-          <th style="text-align:left">Turma</th>
-          <th style="text-align:left">Nome</th>
-          <th>P1</th><th>P2</th><th>P3</th>
-          <th>MT</th><th>N1</th><th>N2</th>
-          <th>MF</th><th class="no-print">Situação</th>
-          <th class="sit-col-print" style="display:none">Situação</th>
-        </tr></thead>
+        <thead>
+          <tr class="th-group">
+            <th rowspan="2" style="text-align:left">Turma</th>
+            <th rowspan="2" style="text-align:left">Nome</th>
+            <th colspan="3">Seminários</th>
+            <th colspan="4">Relatórios</th>
+            <th colspan="3" style="color:var(--accent)">Calculados</th>
+            <th rowspan="2" class="no-print">Situação</th>
+            <th rowspan="2" class="sit-col-print" style="display:none">Situação</th>
+          </tr>
+          <tr>
+            <th>P1</th><th>P2</th><th>P3</th>
+            <th>T1</th><th>T2</th><th>T3</th><th>T4</th>
+            <th style="color:var(--accent)">N1</th>
+            <th style="color:var(--accent)">N2</th>
+            <th style="color:var(--accent)">MF</th>
+          </tr>
+        </thead>
         <tbody id="rel-tbody"></tbody>
       </table>
     </div>
@@ -531,8 +541,8 @@
         </div>
         <div>
           <b>Cálculo das notas:</b><br>
-          MT = Média(T1, T2, T3, T4) / 4<br>
           N1 = (P1 + P2) / 2<br>
+          MT = (T1 + T2 + T3 + T4) / 4<br>
           N2 = (MT + P3) / 2<br>
           MF = (N1 + N2) / 2<br>
           <br>
@@ -729,10 +739,34 @@ function saveAll() {
   } catch(e) { showSaveStatus('⚠ Erro ao salvar'); }
 }
 
+function sanitizeNotas(dados) {
+  // Remove NaN e valores inválidos de qualquer nota salva
+  if (!dados || !dados.notas) return dados;
+  Object.keys(dados.notas).forEach(mat => {
+    const n = dados.notas[mat];
+    TODOS_CAMPOS.forEach(k => {
+      if (n[k] !== undefined && n[k] !== '') {
+        const v = parseFloat(n[k]);
+        if (isNaN(v)) n[k] = '';
+      }
+    });
+  });
+  return dados;
+}
+
 function loadLocal() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) state = deepMerge(state, JSON.parse(raw));
+    if (raw) {
+      const loaded = JSON.parse(raw);
+      // Sanitizar notas de todas as disciplinas/semestres
+      if (loaded.dados) {
+        Object.values(loaded.dados).forEach(disc => {
+          Object.values(disc).forEach(sem => sanitizeNotas(sem));
+        });
+      }
+      state = deepMerge(state, loaded);
+    }
   } catch(e) {}
 }
 
@@ -1137,9 +1171,10 @@ function probBarHTML(mat) {
 }
 
 function fmt(v, mostrarZero) {
-  if (v === null || v === undefined) return '—';
+  if (v === null || v === undefined || v === '') return '—';
   const n = parseFloat(v);
-  if (!mostrarZero && n === 0) return '—';   // campo vazio exibe — em vez de 0.00
+  if (isNaN(n)) return '—';
+  if (!mostrarZero && n === 0) return '—';
   return n.toFixed(2);
 }
 
@@ -1218,7 +1253,8 @@ function onNotaChange(input) {
   const campo = input.dataset.campo;
   const val   = input.value.trim();
   if (!ctxNotas()[mat]) ctxNotas()[mat] = {};
-  ctxNotas()[mat][campo] = val === '' ? '' : parseFloat(val);
+  const parsed = parseFloat(val);
+  ctxNotas()[mat][campo] = (val === '' || isNaN(parsed)) ? '' : parsed;
   const { MT, N1, N2, MF } = calcNotas(mat);
   const cells = input.closest('tr').querySelectorAll('.calc');
   cells[0].textContent = fmt(MT, true);
@@ -1479,7 +1515,7 @@ function gerarPDF() {
     new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
   // Preencher coluna de situação para impressão
   document.querySelectorAll('#rel-tbody tr').forEach(tr => {
-    const mfCell = tr.querySelector('td:nth-child(9)');
+    const mfCell = tr.querySelector('td:nth-child(12)');
     const mf = mfCell ? parseFloat(mfCell.textContent) : NaN;
     let printCols = tr.querySelectorAll('.sit-col-print');
     if (!printCols.length) {
@@ -1516,7 +1552,9 @@ function renderRelatorio() {
       else if (feitas === 7 && MF !== null && MF < 6) reprov++;
       else andamento++;
 
-      const mfCls = feitas === 7 && MF !== null ? (MF >= 6 ? 'ok' : 'fail') : '';
+      const mfCls  = feitas === 7 ? (MF >= 6 ? 'ok' : 'fail') : '';
+      const sitTxt = feitas === 7 ? (MF >= 6 ? 'APROVADO' : 'REPROVADO') : 'EM ANDAMENTO';
+      const sitCor = feitas === 7 ? (MF >= 6 ? '#1a7a4a' : '#c0392b') : '#888';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge badge-b01">${tid}</span></td>
@@ -1524,12 +1562,15 @@ function renderRelatorio() {
         <td class="calc">${fmt(n.P1)}</td>
         <td class="calc">${fmt(n.P2)}</td>
         <td class="calc">${fmt(n.P3)}</td>
-        <td class="calc">${fmt(MT)}</td>
-        <td class="calc">${fmt(N1)}</td>
-        <td class="calc">${fmt(N2)}</td>
-        <td class="calc ${mfCls}">${MF.toFixed(2)}</td>
+        <td class="calc">${fmt(n.T1)}</td>
+        <td class="calc">${fmt(n.T2)}</td>
+        <td class="calc">${fmt(n.T3)}</td>
+        <td class="calc">${fmt(n.T4)}</td>
+        <td class="calc">${fmt(N1, true)}</td>
+        <td class="calc">${fmt(N2, true)}</td>
+        <td class="calc ${mfCls}">${fmt(MF, true)}</td>
         <td class="no-print">${probBarHTML(a.matricula)}</td>
-        <td class="sit-col-print" style="display:none;text-align:center;font-weight:700;color:${MF>=6?'#1a7a4a':'#c0392b'}">${feitas===7?(MF>=6?'APROVADO':'REPROVADO'):'EM ANDAMENTO'}</td>`;
+        <td class="sit-col-print" style="display:none;text-align:center;font-weight:700;color:${sitCor}">${sitTxt}</td>`;
       tbody.appendChild(tr);
     });
   });
