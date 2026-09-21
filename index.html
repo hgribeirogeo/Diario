@@ -297,6 +297,18 @@
   .sit-reprovado { color: var(--danger);  font-weight: 700; }
   .sit-pendente  { color: var(--warn);    font-weight: 700; }
 
+  /* ── BARRA DE PROBABILIDADE ── */
+  .prob-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 140px; }
+  .prob-bar-track {
+    height: 7px; border-radius: 4px; background: var(--border); overflow: hidden;
+  }
+  .prob-bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width .4s, background .4s;
+  }
+  .prob-label { font-size: .72rem; font-weight: 700; }
+  .prob-sub   { font-size: .68rem; color: var(--muted); }
+
   @media (max-width: 700px) {
     .stats-row { grid-template-columns: repeat(2,1fr); }
     input.nota  { width: 44px; }
@@ -580,8 +592,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// GlobalWorkerOptions será setado no init() após carregamento do pdf.js
 
 // ══════════════════════════════════════════════════════════
 //  CATÁLOGO DE DISCIPLINAS
@@ -774,6 +785,9 @@ function importJSON() {
   try {
     const data = JSON.parse(_jsonFileContent);
     state = deepMerge(state, data);
+    // Após import, resetar contexto para valores válidos
+    ctx.discId = state.disciplinas[0]?.id || 'EEC0274_Civil';
+    ctx.turmaId = 'B01';
     saveAll();
     closeModal('modal-import-json');
     mostrarCapa();
@@ -829,6 +843,11 @@ function mostrarCapa() {
 
 function abrirDisc(discId) {
   ctx.discId = discId;
+  // Garantir que turmaId aponta para uma turma válida neste contexto
+  const turmasDisponiveis = Object.keys(ctxTurmas());
+  if (!turmasDisponiveis.includes(ctx.turmaId)) {
+    ctx.turmaId = turmasDisponiveis[0] || 'B01';
+  }
   document.getElementById('tela-capa').classList.remove('active');
   document.getElementById('tela-app').classList.add('active');
   renderBreadcrumb();
@@ -882,7 +901,7 @@ function renderCapa() {
         return avg(N1,N2);
       })
     ).filter(v => v !== null);
-    const aprov = mfs.filter(v => v >= 5).length;
+    const aprov = mfs.filter(v => v >= 6).length;
 
     const card = document.createElement('div');
     card.className = 'disc-card';
@@ -958,10 +977,24 @@ function onContextChange() {
 // ══════════════════════════════════════════════════════════
 //  FÓRMULAS
 // ══════════════════════════════════════════════════════════
+// Média ignorando ausentes (para exibição parcial)
 function avg(...vals) {
   const nums = vals.flat().filter(v => v !== null && v !== undefined && v !== '' && !isNaN(parseFloat(v)));
   if (!nums.length) return null;
   return nums.reduce((a,b) => a + parseFloat(b), 0) / nums.length;
+}
+
+// Média tratando ausente como zero (para cálculo de probabilidade)
+function avgZ(...vals) {
+  const all = vals.flat();
+  if (!all.length) return 0;
+  return all.reduce((s, v) => s + (v !== null && v !== undefined && v !== '' && !isNaN(parseFloat(v)) ? parseFloat(v) : 0), 0) / all.length;
+}
+
+// Quantas das 7 avaliações estão preenchidas
+function entregasFeitas(mat) {
+  const n = ctxNotas()[mat] || {};
+  return ['P1','P2','P3','T1','T2','T3','T4'].filter(k => n[k] !== undefined && n[k] !== '').length;
 }
 
 function calcNotas(mat) {
@@ -973,6 +1006,57 @@ function calcNotas(mat) {
   return { MT, N1, N2, MF };
 }
 
+// Calcula MF tratando vazios como zero — para projetar probabilidade
+function calcProjecao(mat) {
+  const n   = ctxNotas()[mat] || {};
+  const MT  = avgZ(n.T1, n.T2, n.T3, n.T4);
+  const N1  = avgZ(n.P1, n.P2);
+  const N2  = avgZ(MT,   n.P3);
+  const MFz = (N1 + N2) / 2;
+  return MFz;
+}
+
+// Gera o HTML da barra de probabilidade
+function probBarHTML(mat) {
+  const n       = ctxNotas()[mat] || {};
+  const campos  = ['P1','P2','P3','T1','T2','T3','T4'];
+  const feitas  = campos.filter(k => n[k] !== undefined && n[k] !== '').length;
+  const total   = campos.length;
+  const { MF }  = calcNotas(mat);
+  const proj    = calcProjecao(mat);
+  const pct     = Math.min(100, Math.round((proj / 10) * 100));
+  const aprovMin = 60; // 60% = nota 6
+
+  // Cor da barra
+  const cor = proj >= 6 ? 'var(--accent2)' : proj >= 4 ? 'var(--warn)' : 'var(--danger)';
+
+  // Status textual
+  let label, sub;
+  if (feitas === 0) {
+    label = '<span style="color:var(--muted)">Sem entregas</span>';
+    sub   = '0 de 7 avaliações';
+  } else if (feitas < total) {
+    label = `<span style="color:${cor}">Projeção: ${proj.toFixed(2)}</span>`;
+    sub   = `${feitas} de ${total} · ${proj >= 6 ? '✓ aprovando' : '✗ reprovando'}`;
+  } else {
+    // Todas entregues — resultado final
+    label = MF >= 6
+      ? '<span class="sit-aprovado">✅ Aprovado</span>'
+      : '<span class="sit-reprovado">❌ Reprovado</span>';
+    sub   = `MF = ${MF !== null ? MF.toFixed(2) : '—'}`;
+  }
+
+  return `<div class="prob-wrap">
+    <div class="prob-bar-track">
+      <div class="prob-bar-fill" style="width:${pct}%;background:${cor}"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+      <div class="prob-label">${label}</div>
+      <div class="prob-sub">${sub}</div>
+    </div>
+  </div>`;
+}
+
 function fmt(v) {
   if (v === null || v === undefined) return '—';
   return parseFloat(v).toFixed(2);
@@ -981,14 +1065,14 @@ function fmt(v) {
 // ══════════════════════════════════════════════════════════
 //  TURMA SELECTORS
 // ══════════════════════════════════════════════════════════
-function buildTurmaSelector(containerId, onSelect) {
+function buildTurmaSelector(containerId) {
   const turmas = Object.keys(ctxTurmas());
-  // Garantir B01 existe
   if (!ctxTurmas().B01) ctxTurmas().B01 = { alunos: [] };
   const cont = document.getElementById(containerId);
+  if (!cont) return;
   cont.innerHTML = turmas.map(t =>
     `<button class="turma-btn${t === ctx.turmaId ? ' active' : ''}"
-      onclick="selectTurma('${t}','${containerId}',${JSON.stringify(onSelect).replace(/"/g,"'")})">${t}
+      onclick="selectTurma('${t}')">${t}
       <span style="font-size:.7rem;color:var(--muted)"> (${ctxTurmas()[t].alunos.length})</span>
     </button>`
   ).join('') +
@@ -1022,7 +1106,7 @@ function renderNotas() {
   alunos.forEach(a => {
     const n = ctxNotas()[a.matricula] || {};
     const { MT, N1, N2, MF } = calcNotas(a.matricula);
-    const mfCls = MF === null ? '' : MF >= 5 ? 'ok' : 'fail';
+    const mfCls = MF === null ? '' : MF >= 6 ? 'ok' : 'fail';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${a.matricula}</td>
@@ -1066,7 +1150,7 @@ function onNotaChange(input) {
 
 function renderStatsNotas(alunos) {
   const mfs = alunos.map(a => calcNotas(a.matricula).MF).filter(v => v !== null);
-  const aprov = mfs.filter(v => v >= 5).length;
+  const aprov = mfs.filter(v => v >= 6).length;
   const media = mfs.length ? mfs.reduce((a,b)=>a+b,0)/mfs.length : null;
   document.getElementById('stats-notas').innerHTML = `
     <div class="stat-box"><div class="val">${alunos.length}</div><div class="lbl">Alunos</div></div>
@@ -1186,33 +1270,43 @@ async function handlePDFUpload(event) {
   let msgs = [];
 
   for (const file of files) {
-    const text = await extractPDFText(file);
-    const { turmaId, alunos } = parseListaSIGAA(text, file.name);
-    if (!alunos.length) {
-      msgs.push(`⚠ ${file.name}: nenhum aluno extraído.`);
-      continue;
+    log.innerHTML = `⏳ Lendo ${file.name}...`;
+    try {
+      const text = await extractPDFText(file);
+      log.innerHTML = `⏳ Parseando ${file.name} (${text.length} chars)...`;
+      const { turmaId, alunos } = parseListaSIGAA(text, file.name);
+      if (!alunos.length) {
+        msgs.push(`⚠ ${file.name}: nenhum aluno extraído.<br><small style="color:var(--muted)">Texto: ${text.slice(0,200).replace(/\n/g,' ')}</small>`);
+        continue;
+      }
+      const tid = turmaId || ctx.turmaId;
+      if (!ctxTurmas()[tid]) ctxTurmas()[tid] = { alunos: [] };
+      const existentes = ctxTurmas()[tid].alunos.map(a => a.matricula);
+      let novos = 0;
+      alunos.forEach(a => {
+        if (!existentes.includes(a.matricula)) { ctxTurmas()[tid].alunos.push(a); novos++; }
+      });
+      msgs.push(`✓ ${file.name} → Turma ${tid}: ${alunos.length} alunos (${novos} novos)`);
+    } catch(err) {
+      msgs.push(`❌ ${file.name}: erro ao processar — ${err.message}`);
     }
-    // Turma alvo: detectada no PDF ou a turma atual
-    const tid = turmaId || ctx.turmaId;
-    if (!ctxTurmas()[tid]) ctxTurmas()[tid] = { alunos: [] };
-    const existentes = ctxTurmas()[tid].alunos.map(a => a.matricula);
-    let novos = 0;
-    alunos.forEach(a => {
-      if (!existentes.includes(a.matricula)) { ctxTurmas()[tid].alunos.push(a); novos++; }
-    });
-    msgs.push(`✓ ${file.name} → Turma ${tid}: ${alunos.length} alunos (${novos} novos)`);
   }
 
   saveAll(); renderAll();
-  log.innerHTML = msgs.map(m=>`<div>${m}</div>`).join('') +
-    `<div style="margin-top:8px;color:var(--accent2);font-weight:700">Concluído.</div>`;
+  log.innerHTML = msgs.map(m => `<div style="margin-bottom:4px">${m}</div>`).join('') +
+    `<div style="margin-top:10px;color:var(--accent2);font-weight:700">Concluído.</div>`;
   event.target.value = '';
   toast('Importação concluída!');
 }
 
 async function extractPDFText(file) {
+  // Garantir worker inicializado
+  if (typeof pdfjsLib !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
   const ab  = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ab) }).promise;
   let text  = '';
   for (let p = 1; p <= pdf.numPages; p++) {
     const page    = await pdf.getPage(p);
@@ -1293,20 +1387,22 @@ function confirmAddStudent() {
 //  RELATÓRIO
 // ══════════════════════════════════════════════════════════
 function renderRelatorio() {
-  const turmas  = ctxTurmas();
-  const tbody   = document.getElementById('rel-tbody');
+  const turmas = ctxTurmas();
+  const tbody  = document.getElementById('rel-tbody');
   tbody.innerHTML = '';
-  let tot = 0, aprov = 0;
+  let tot = 0, aprov = 0, reprov = 0, andamento = 0;
 
   Object.entries(turmas).forEach(([tid, t]) => {
     t.alunos.forEach(a => {
-      const n = ctxNotas()[a.matricula] || {};
+      const n      = ctxNotas()[a.matricula] || {};
       const { MT, N1, N2, MF } = calcNotas(a.matricula);
+      const feitas = entregasFeitas(a.matricula);
       tot++;
-      if (MF !== null && MF >= 5) aprov++;
-      const sit = MF === null ? '<span class="sit-pendente">Pendente</span>'
-                : MF >= 5    ? '<span class="sit-aprovado">✅ Aprovado</span>'
-                             : '<span class="sit-reprovado">❌ Reprovado</span>';
+      if (feitas === 7 && MF !== null && MF >= 6) aprov++;
+      else if (feitas === 7 && MF !== null && MF < 6) reprov++;
+      else andamento++;
+
+      const mfCls = feitas === 7 && MF !== null ? (MF >= 6 ? 'ok' : 'fail') : '';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge badge-b01">${tid}</span></td>
@@ -1317,8 +1413,8 @@ function renderRelatorio() {
         <td class="calc">${fmt(MT)}</td>
         <td class="calc">${fmt(N1)}</td>
         <td class="calc">${fmt(N2)}</td>
-        <td class="calc ${MF===null?'':(MF>=5?'ok':'fail')}">${fmt(MF)}</td>
-        <td>${sit}</td>`;
+        <td class="calc ${mfCls}">${feitas===7&&MF!==null?MF.toFixed(2):'—'}</td>
+        <td>${probBarHTML(a.matricula)}</td>`;
       tbody.appendChild(tr);
     });
   });
@@ -1326,8 +1422,9 @@ function renderRelatorio() {
   document.getElementById('stats-rel').innerHTML = `
     <div class="stat-box"><div class="val">${tot}</div><div class="lbl">Total alunos</div></div>
     <div class="stat-box"><div class="val" style="color:var(--accent2)">${aprov}</div><div class="lbl">Aprovados</div></div>
-    <div class="stat-box"><div class="val" style="color:var(--danger)">${tot-aprov}</div><div class="lbl">Em risco</div></div>
-    <div class="stat-box"><div class="val">${tot?Math.round(aprov/tot*100):0}%</div><div class="lbl">Taxa aprovação</div></div>
+    <div class="stat-box"><div class="val" style="color:var(--danger)">${reprov}</div><div class="lbl">Reprovados</div></div>
+    <div class="stat-box"><div class="val" style="color:var(--warn)">${andamento}</div><div class="lbl">Em andamento</div></div>
+    <div class="stat-box"><div class="val">${aprov+reprov>0?Math.round(aprov/(aprov+reprov)*100):0}%</div><div class="lbl">Taxa aprovação</div></div>
   `;
   renderCharts();
 }
@@ -1474,6 +1571,13 @@ function renderAll() {
 //  INIT
 // ══════════════════════════════════════════════════════════
 async function init() {
+  // Inicializar worker do PDF.js de forma segura
+  try {
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  } catch(e) { console.warn('PDF.js worker não disponível:', e); }
   loadLocal();
 
   // Recompor disciplinas padrão
