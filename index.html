@@ -662,14 +662,13 @@ function loadLocal() {
 }
 
 function deepMerge(target, source) {
-  if (!source || typeof source !== 'object') return source ?? target;
-  const out = Array.isArray(target) ? [...target] : Object.assign({}, target);
+  if (source === null || source === undefined) return target;
+  if (Array.isArray(source)) return source;
+  if (typeof source !== 'object') return source;
+  if (typeof target !== 'object' || target === null || Array.isArray(target)) return source;
+  const out = Object.assign({}, target);
   for (const k of Object.keys(source)) {
-    if (source[k] && typeof source[k] === 'object' && !Array.isArray(source[k])) {
-      out[k] = deepMerge(target[k] ?? {}, source[k]);
-    } else {
-      out[k] = source[k];
-    }
+    out[k] = deepMerge(target[k], source[k]);
   }
   return out;
 }
@@ -775,8 +774,10 @@ function importJSON() {
   try {
     const data = JSON.parse(_jsonFileContent);
     state = deepMerge(state, data);
-    saveAll(); renderAll();
+    saveAll();
     closeModal('modal-import-json');
+    mostrarCapa();
+    renderCapa();
     toast('Dados importados com sucesso!');
   } catch(e) { alert('JSON inválido: ' + e.message); }
 }
