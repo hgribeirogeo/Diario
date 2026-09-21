@@ -36,25 +36,108 @@
   .logo { font-size: 1rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
   .logo span { color: var(--accent2); }
 
-  .context-selects { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  select.ctx {
-    background: var(--inp); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 5px 10px; font-size: .82rem; cursor: pointer;
+  .disc-breadcrumb {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
-  select.ctx:focus { outline: none; border-color: var(--accent); }
-  select.ctx.disciplina { min-width: 280px; }
-  select.ctx.semestre   { min-width: 110px; }
-  select.ctx.ano        { min-width: 80px;  }
-
-  .turma-badge {
+  .disc-breadcrumb .sep { color: var(--border); font-size: 1.2rem; }
+  .disc-breadcrumb .disc-nome {
+    font-weight: 700; color: var(--text); font-size: .9rem;
+  }
+  .disc-breadcrumb .disc-sem {
+    color: var(--muted); font-size: .8rem;
+  }
+  .disc-breadcrumb .disc-turma {
     background: #3d8ef022; border: 1px solid #3d8ef055;
     color: var(--accent); border-radius: 20px;
-    padding: 3px 10px; font-size: .75rem; font-weight: 700;
-    white-space: nowrap;
+    padding: 2px 10px; font-size: .75rem; font-weight: 700;
   }
 
   header .right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* ── CAPA ── */
+  #tela-capa { display: none; min-height: 100vh; }
+  #tela-capa.active { display: block; }
+  #tela-app  { display: none; }
+  #tela-app.active  { display: block; }
+
+  .capa-header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+  .capa-logo { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+  .capa-logo span { color: var(--accent2); }
+  .capa-logo small { display: block; font-size: .75rem; font-weight: 400; color: var(--muted); margin-top: 2px; }
+
+  .capa-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  select.ctx {
+    background: var(--inp); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; font-size: .84rem; cursor: pointer;
+  }
+  select.ctx:focus { outline: none; border-color: var(--accent); }
+  select.ctx.semestre { min-width: 90px; }
+  select.ctx.ano      { min-width: 80px; }
+
+  .capa-main { padding: 32px 24px; max-width: 1200px; margin: 0 auto; }
+  .capa-section-title {
+    font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--muted); margin-bottom: 16px;
+  }
+
+  .disc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; margin-bottom: 32px;
+  }
+  .disc-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+    cursor: pointer; transition: border-color .15s, transform .1s, box-shadow .15s;
+    position: relative; overflow: hidden;
+  }
+  .disc-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent); border-radius: 12px 12px 0 0;
+    opacity: 0; transition: opacity .15s;
+  }
+  .disc-card:hover { border-color: var(--accent); transform: translateY(-2px);
+                     box-shadow: 0 8px 24px #0004; }
+  .disc-card:hover::before { opacity: 1; }
+  .disc-card .dc-codigo {
+    font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 4px;
+  }
+  .disc-card .dc-nome {
+    font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 2px;
+  }
+  .disc-card .dc-sufixo {
+    font-size: .8rem; color: var(--muted); margin-bottom: 14px;
+  }
+  .disc-card .dc-stats {
+    display: flex; gap: 16px;
+  }
+  .disc-card .dc-stat { text-align: center; }
+  .disc-card .dc-stat .v { font-size: 1.3rem; font-weight: 700; color: var(--accent2); }
+  .disc-card .dc-stat .l { font-size: .68rem; color: var(--muted); }
+  .disc-card .dc-turmas {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px;
+  }
+  .disc-card .dc-turma-tag {
+    background: var(--inp); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2px 10px;
+    font-size: .72rem; color: var(--muted);
+  }
+  .disc-card .dc-sem-dados {
+    font-size: .78rem; color: var(--border); font-style: italic; margin-top: 8px;
+  }
+  .disc-card-add {
+    background: transparent; border: 2px dashed var(--border);
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; color: var(--muted); font-size: .85rem;
+    transition: border-color .15s, color .15s;
+  }
+  .disc-card-add:hover { border-color: var(--accent2); color: var(--accent2); }
 
   /* ── TABS ── */
   .tab-bar {
@@ -223,47 +306,60 @@
 </head>
 <body>
 
-<!-- ══ TOPBAR ══ -->
-<header>
-  <div class="logo">Diário<span>Prof</span></div>
-
-  <div class="context-selects">
-    <select class="ctx disciplina" id="sel-disciplina" onchange="onDisciplinaChange()">
-      <option value="EEC0274_Civil">EEC0274 · Topografia e Geodésia — Civil</option>
-      <option value="EEC0273_Ambiental">EEC0273 · Topografia e Geodésia — Ambiental</option>
-      <option value="EEC0296_SR">EEC0296 · Sensoriamento Remoto</option>
-    </select>
-
-    <select class="ctx semestre" id="sel-semestre" onchange="onContextChange()">
-      <option value="1">…1</option>
-      <option value="2" selected>…2</option>
-    </select>
-
-    <select class="ctx ano" id="sel-ano" onchange="onContextChange()">
-      <!-- preenchido por JS -->
-    </select>
-
-    <span class="turma-badge" id="ctx-badge">—</span>
+<!-- ══ TELA CAPA ══ -->
+<div id="tela-capa">
+  <div class="capa-header">
+    <div>
+      <div class="capa-logo">Diário<span>Prof</span>
+        <small>UFG · EECA — Hugo José Ribeiro</small>
+      </div>
+    </div>
+    <div class="capa-controls">
+      <select class="ctx ano" id="sel-ano" onchange="onContextChange()"></select>
+      <select class="ctx semestre" id="sel-semestre" onchange="onContextChange()">
+        <option value="1">…1</option>
+        <option value="2" selected>…2</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="openImportJSON()">📥 Importar JSON</button>
+      <button class="btn btn-success btn-sm" onclick="exportJSON()">📤 Exportar JSON</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchToApp('config')">⚙ Config</button>
+      <span id="save-status-capa" style="font-size:.73rem;color:var(--muted)"></span>
+    </div>
   </div>
 
-  <div class="right">
-    <button class="btn btn-ghost btn-sm" onclick="openImportJSON()">📥 Importar JSON</button>
-    <button class="btn btn-success btn-sm" onclick="exportJSON()">📤 Exportar JSON</button>
-    <button class="btn btn-ghost btn-sm" onclick="saveAll()">💾 Salvar</button>
-    <span id="save-status" style="font-size:.73rem;color:var(--muted)"></span>
+  <div class="capa-main">
+    <div class="capa-section-title" id="capa-sem-label">Disciplinas — 2026.2</div>
+    <div class="disc-grid" id="disc-grid"></div>
   </div>
-</header>
-
-<!-- ══ TABS ══ -->
-<div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('notas',this)">📊 Notas</button>
-  <button class="tab-btn"        onclick="switchTab('diario',this)">📓 Diário de Aulas</button>
-  <button class="tab-btn"        onclick="switchTab('importar',this)">📁 Importar PDF</button>
-  <button class="tab-btn"        onclick="switchTab('relatorio',this)">📈 Relatório</button>
-  <button class="tab-btn"        onclick="switchTab('config',this)">⚙ Config</button>
 </div>
 
-<main>
+<!-- ══ TELA APP ══ -->
+<div id="tela-app">
+
+  <!-- TOPBAR -->
+  <header>
+    <button class="btn btn-ghost btn-sm" onclick="voltarCapa()" style="gap:4px">
+      ← Início
+    </button>
+    <div class="disc-breadcrumb" id="disc-breadcrumb"></div>
+    <div class="right">
+      <button class="btn btn-ghost btn-sm" onclick="openImportJSON()">📥 JSON</button>
+      <button class="btn btn-success btn-sm" onclick="exportJSON()">📤 JSON</button>
+      <button class="btn btn-ghost btn-sm" onclick="saveAll()">💾 Salvar</button>
+      <span id="save-status" style="font-size:.73rem;color:var(--muted)"></span>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('notas',this)">📊 Notas</button>
+    <button class="tab-btn"        onclick="switchTab('diario',this)">📓 Diário de Aulas</button>
+    <button class="tab-btn"        onclick="switchTab('importar',this)">📁 Importar PDF</button>
+    <button class="tab-btn"        onclick="switchTab('relatorio',this)">📈 Relatório</button>
+    <button class="tab-btn"        onclick="switchTab('config',this)">⚙ Config</button>
+  </div>
+
+  <main>
 
 <!-- ══ NOTAS ══ -->
 <section class="section active" id="tab-notas">
@@ -409,6 +505,7 @@
 </section>
 
 </main>
+</div><!-- /tela-app -->
 
 <!-- TOAST -->
 <div id="toast"></div>
@@ -417,14 +514,21 @@
 <div class="modal-backdrop" id="modal-import-json">
   <div class="modal">
     <h3>📥 Importar Backup JSON</h3>
-    <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px">Cole o conteúdo do JSON exportado:</p>
-    <textarea id="json-import-area"
-      style="width:100%;height:180px;background:var(--inp);color:var(--text);
-             border:1px solid var(--border);border-radius:6px;padding:10px;
-             font-size:.76rem;font-family:monospace"></textarea>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:14px">
+      Selecione o arquivo <code style="color:var(--accent)">.json</code> exportado anteriormente:
+    </p>
+    <div class="drop-area" id="json-drop-zone" style="padding:20px"
+         onclick="document.getElementById('json-file-input').click()">
+      <div class="icon" style="font-size:1.5rem">📂</div>
+      <div id="json-file-label">Clique para selecionar o arquivo JSON</div>
+      <div style="font-size:.72rem;margin-top:4px;color:var(--muted)">ou arraste aqui</div>
+    </div>
+    <input type="file" id="json-file-input" accept=".json" style="display:none"
+           onchange="onJSONFileSelected(this)">
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-import-json')">Cancelar</button>
-      <button class="btn btn-primary" onclick="importJSON()">Importar</button>
+      <button class="btn btn-primary" id="btn-importar-json" onclick="importJSON()" disabled
+              style="opacity:.4">Importar</button>
     </div>
   </div>
 </div>
@@ -571,9 +675,10 @@ function deepMerge(target, source) {
 }
 
 function showSaveStatus(msg) {
-  const el = document.getElementById('save-status');
-  el.textContent = msg;
-  setTimeout(() => el.textContent = '', 3000);
+  ['save-status','save-status-capa'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = msg; setTimeout(() => el.textContent='', 3000); }
+  });
 }
 
 setInterval(() => {
@@ -640,20 +745,59 @@ function exportJSON() {
   toast('JSON exportado!');
 }
 
+let _jsonFileContent = null;
+
 function openImportJSON() {
-  document.getElementById('json-import-area').value = '';
+  _jsonFileContent = null;
+  document.getElementById('json-file-input').value = '';
+  document.getElementById('json-file-label').textContent = 'Clique para selecionar o arquivo JSON';
+  document.getElementById('btn-importar-json').disabled = true;
+  document.getElementById('btn-importar-json').style.opacity = '.4';
   openModal('modal-import-json');
 }
 
+function onJSONFileSelected(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _jsonFileContent = e.target.result;
+    document.getElementById('json-file-label').textContent = `✓ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+    document.getElementById('json-file-label').style.color = 'var(--accent2)';
+    document.getElementById('btn-importar-json').disabled = false;
+    document.getElementById('btn-importar-json').style.opacity = '1';
+  };
+  reader.readAsText(file);
+}
+
 function importJSON() {
+  if (!_jsonFileContent) return;
   try {
-    const data = JSON.parse(document.getElementById('json-import-area').value);
+    const data = JSON.parse(_jsonFileContent);
     state = deepMerge(state, data);
     saveAll(); renderAll();
     closeModal('modal-import-json');
-    toast('Dados importados!');
+    toast('Dados importados com sucesso!');
   } catch(e) { alert('JSON inválido: ' + e.message); }
 }
+
+// Drag-and-drop no modal JSON
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('json-drop-zone');
+  if (!dz) return;
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.json')) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      document.getElementById('json-file-input').files = dt.files;
+      onJSONFileSelected(document.getElementById('json-file-input'));
+    }
+  });
+});
 
 // ══════════════════════════════════════════════════════════
 //  CONTEXTO (seletor de disciplina / ano / semestre)
@@ -673,37 +817,141 @@ function buildAnoSelect() {
   });
 }
 
-function buildDiscSelect() {
-  const sel = document.getElementById('sel-disciplina');
-  sel.innerHTML = state.disciplinas.map(d =>
-    `<option value="${d.id}" ${d.id === ctx.discId ? 'selected' : ''}>
-      ${d.codigo} · ${d.nome}${d.sufixo ? ' — ' + d.sufixo : ''}
-    </option>`
-  ).join('');
+// ══════════════════════════════════════════════════════════
+//  NAVEGAÇÃO CAPA ↔ APP
+// ══════════════════════════════════════════════════════════
+function mostrarCapa() {
+  document.getElementById('tela-capa').classList.add('active');
+  document.getElementById('tela-app').classList.remove('active');
+  renderCapa();
 }
 
-function onDisciplinaChange() {
-  ctx.discId = document.getElementById('sel-disciplina').value;
-  // Reset turma para B01 se não existir no novo contexto
-  const turmas = Object.keys(ctxTurmas());
-  if (!turmas.includes(ctx.turmaId)) ctx.turmaId = turmas[0] || 'B01';
-  updateBadge(); renderAll();
+function abrirDisc(discId) {
+  ctx.discId = discId;
+  document.getElementById('tela-capa').classList.remove('active');
+  document.getElementById('tela-app').classList.add('active');
+  renderBreadcrumb();
+  renderAll();
+  // Reset para aba Notas
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.querySelectorAll('.section').forEach((s,i) => s.classList.toggle('active', i===0));
+}
+
+function voltarCapa() {
+  saveAll();
+  document.getElementById('tela-app').classList.remove('active');
+  document.getElementById('tela-capa').classList.add('active');
+  renderCapa();
+}
+
+function switchToApp(tab) {
+  // Abre o app direto em uma aba específica (ex: Config da capa)
+  if (!ctx.discId) ctx.discId = state.disciplinas[0]?.id;
+  document.getElementById('tela-capa').classList.remove('active');
+  document.getElementById('tela-app').classList.add('active');
+  renderBreadcrumb(); renderAll();
+  const btns = document.querySelectorAll('.tab-btn');
+  const secs = document.querySelectorAll('.section');
+  const idx  = ['notas','diario','importar','relatorio','config'].indexOf(tab);
+  btns.forEach((b,i) => b.classList.toggle('active', i===idx));
+  secs.forEach((s,i) => s.classList.toggle('active', i===idx));
+  if (tab==='config')    renderConfig();
+  if (tab==='relatorio') renderRelatorio();
+}
+
+// ── Render Capa ──
+function renderCapa() {
+  const grid = document.getElementById('disc-grid');
+  const label = document.getElementById('capa-sem-label');
+  label.textContent = `Disciplinas — ${ctx.ano}.${ctx.semestre}`;
+
+  grid.innerHTML = '';
+
+  state.disciplinas.forEach(d => {
+    const dados = state.dados?.[d.id]?.[semKey()];
+    const turmas = dados?.turmas || {};
+    const notas  = dados?.notas  || {};
+    const totalAlunos = Object.values(turmas).reduce((s,t) => s + t.alunos.length, 0);
+    const mfs = Object.values(turmas).flatMap(t =>
+      t.alunos.map(a => {
+        const n = notas[a.matricula] || {};
+        const MT = avg(n.T1,n.T2,n.T3,n.T4);
+        const N1 = avg(n.P1,n.P2);
+        const N2 = avg(MT,n.P3);
+        return avg(N1,N2);
+      })
+    ).filter(v => v !== null);
+    const aprov = mfs.filter(v => v >= 5).length;
+
+    const card = document.createElement('div');
+    card.className = 'disc-card';
+    card.onclick = () => abrirDisc(d.id);
+    card.innerHTML = `
+      <div class="dc-codigo">${d.codigo}</div>
+      <div class="dc-nome">${d.nome}</div>
+      ${d.sufixo ? `<div class="dc-sufixo">${d.sufixo}</div>` : '<div class="dc-sufixo" style="margin-bottom:14px"></div>'}
+      ${totalAlunos > 0 ? `
+        <div class="dc-stats">
+          <div class="dc-stat"><div class="v">${totalAlunos}</div><div class="l">Alunos</div></div>
+          <div class="dc-stat"><div class="v" style="color:var(--accent2)">${aprov}</div><div class="l">Aprovados</div></div>
+          <div class="dc-stat"><div class="v" style="color:var(--danger)">${totalAlunos-aprov}</div><div class="l">Em risco</div></div>
+        </div>
+        <div class="dc-turmas">
+          ${Object.keys(turmas).map(t =>
+            `<span class="dc-turma-tag">${t} · ${turmas[t].alunos.length}</span>`
+          ).join('')}
+        </div>` : `
+        <div class="dc-sem-dados">Sem alunos cadastrados neste semestre</div>
+        <div style="margin-top:8px;font-size:.75rem;color:var(--accent)">Clique para configurar →</div>
+      `}
+    `;
+    grid.appendChild(card);
+  });
+
+  // Card + nova disciplina
+  const add = document.createElement('div');
+  add.className = 'disc-card disc-card-add';
+  add.onclick = () => { switchToApp('config'); };
+  add.innerHTML = `<span style="font-size:1.2rem">＋</span> Nova disciplina`;
+  grid.appendChild(add);
+}
+
+// ── Breadcrumb no app ──
+function renderBreadcrumb() {
+  const d   = state.disciplinas.find(d => d.id === ctx.discId);
+  const el  = document.getElementById('disc-breadcrumb');
+  if (!d) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <span class="disc-nome">${d.codigo} · ${d.nome}${d.sufixo?' — '+d.sufixo:''}</span>
+    <span class="sep">·</span>
+    <span class="disc-sem">${ctx.ano}.${ctx.semestre}</span>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONTEXTO (ano / semestre — sem dropdown de disciplina)
+// ══════════════════════════════════════════════════════════
+function buildAnoSelect() {
+  const sel = document.getElementById('sel-ano');
+  sel.innerHTML = '';
+  for (let y = 2050; y >= 2024; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    if (y === ctx.ano) o.selected = true;
+    sel.appendChild(o);
+  }
+  document.querySelectorAll('#sel-semestre option').forEach(o => {
+    o.textContent = `${ctx.ano}.${o.value}`;
+  });
 }
 
 function onContextChange() {
   ctx.ano      = parseInt(document.getElementById('sel-ano').value);
   ctx.semestre = parseInt(document.getElementById('sel-semestre').value);
-  // Atualizar labels do semestre com o ano atual
   document.querySelectorAll('#sel-semestre option').forEach(o => {
     o.textContent = `${ctx.ano}.${o.value}`;
   });
-  updateBadge(); renderAll();
-}
-
-function updateBadge() {
-  const disc = state.disciplinas.find(d => d.id === ctx.discId);
-  const label = disc ? `${disc.codigo} · ${ctx.ano}.${ctx.semestre}` : '—';
-  document.getElementById('ctx-badge').textContent = label;
+  renderCapa();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1153,7 +1401,7 @@ function confirmNovaDisc() {
   const id = cod + (sufixo ? '_' + sufixo.replace(/\s+/g,'') : '');
   if (state.disciplinas.find(d => d.id === id)) { alert('Disciplina já existe.'); return; }
   state.disciplinas.push({ id, codigo: cod, nome, sufixo });
-  buildDiscSelect(); saveAll();
+  saveAll();
   closeModal('modal-nova-disc'); renderConfig();
   toast('Disciplina criada!');
 }
@@ -1161,7 +1409,7 @@ function confirmNovaDisc() {
 function removeDisc(id) {
   if (!confirm('Remover disciplina? Os dados ficam preservados no JSON.')) return;
   state.disciplinas = state.disciplinas.filter(d => d.id !== id);
-  if (ctx.discId === id) { ctx.discId = state.disciplinas[0].id; buildDiscSelect(); }
+  if (ctx.discId === id) ctx.discId = state.disciplinas[0]?.id;
   saveAll(); renderConfig(); toast('Disciplina removida.');
 }
 
@@ -1209,12 +1457,11 @@ dropZone.addEventListener('drop', e => {
 
 // ══════════════════════════════════════════════════════════
 //  RENDER ALL
-// ══════════════════════════════════════════════════════════
 function renderAll() {
   renderNotas();
   renderDiario();
   renderAlunosMgr();
-  updateBadge();
+  renderBreadcrumb();
   // Popular modal add-turma
   const sel = document.getElementById('add-turma');
   if (sel) {
@@ -1228,34 +1475,32 @@ function renderAll() {
 async function init() {
   loadLocal();
 
-  // Recompor disciplinas (mesclar padrão + salvas)
-  const savedIds = state.disciplinas.map(d=>d.id);
+  // Recompor disciplinas padrão
+  const savedIds = state.disciplinas.map(d => d.id);
   DISC_DEFAULT.forEach(d => { if (!savedIds.includes(d.id)) state.disciplinas.unshift(d); });
 
   // Semestre atual por default
-  const now = new Date();
+  const now    = new Date();
   ctx.ano      = now.getFullYear();
   ctx.semestre = now.getMonth() < 6 ? 1 : 2;
+  ctx.discId   = state.disciplinas[0]?.id;
 
-  // Construir selects
+  // Construir selects de ano e semestre
   buildAnoSelect();
-  buildDiscSelect();
-
-  // Atualizar labels semestre no select
   document.querySelectorAll('#sel-semestre option').forEach(o => {
     o.textContent = `${ctx.ano}.${o.value}`;
     if (parseInt(o.value) === ctx.semestre) o.selected = true;
   });
 
-  updateBadge();
-  renderAll();
+  // Iniciar na capa
+  mostrarCapa();
 
   // Tentar Gist silenciosamente
   const token  = localStorage.getItem(GIST_TOK_KEY);
   const gistId = localStorage.getItem(GIST_ID_KEY);
   if (token && gistId) {
     const ok = await loadGistSilent();
-    if (ok) toast('Dados sincronizados do Gist!');
+    if (ok) { renderCapa(); toast('Dados sincronizados do Gist!'); }
   }
 }
 
