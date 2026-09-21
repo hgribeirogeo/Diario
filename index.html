@@ -309,6 +309,30 @@
   .prob-label { font-size: .72rem; font-weight: 700; }
   .prob-sub   { font-size: .68rem; color: var(--muted); }
 
+
+  /* ── IMPRESSÃO ── */
+  @media print {
+    body { background: #fff !important; color: #000 !important; font-size: 11px; }
+    #tela-capa, header, .tab-bar, .btn, button,
+    #stats-notas, #stats-rel, canvas,
+    .card:has(canvas) { display: none !important; }
+    #tela-app { display: block !important; }
+    .section { display: none !important; }
+    #tab-relatorio { display: block !important; }
+    #print-area { display: block !important; }
+    .card { background: #fff !important; border: 1px solid #ccc !important; border-radius: 0 !important; }
+    table { font-size: 10px; width: 100%; }
+    thead tr th { background: #f0f0f0 !important; color: #000 !important; }
+    .calc.ok   { color: #1a7a4a !important; }
+    .calc.fail { color: #c0392b !important; }
+    .prob-wrap { display: none !important; }
+    .sit-col-print { display: table-cell !important; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    @page { margin: 15mm; size: A4 landscape; }
+  }
+  .print-only { display: none; }
+  .sit-col-print { }
   @media (max-width: 700px) {
     .stats-row { grid-template-columns: repeat(2,1fr); }
     input.nota  { width: 44px; }
@@ -454,8 +478,8 @@
 
 <!-- ══ RELATÓRIO ══ -->
 <section class="section" id="tab-relatorio">
-  <div class="stats-row" id="stats-rel"></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+  <div class="stats-row no-print" id="stats-rel"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px" class="no-print">
     <div class="card">
       <div class="card-title">Distribuição MF</div>
       <canvas id="chart-mf" height="200"></canvas>
@@ -465,8 +489,20 @@
       <canvas id="chart-aval" height="200"></canvas>
     </div>
   </div>
-  <div class="card">
-    <div class="card-title">Situação dos Alunos</div>
+
+  <div class="card" id="print-area">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap" class="no-print">
+      <span class="card-title" style="margin:0">Situação dos Alunos</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-primary btn-sm" onclick="gerarPDF()">🖨 Gerar PDF</button>
+    </div>
+
+    <!-- Cabeçalho visível só na impressão -->
+    <div class="print-only" style="margin-bottom:14px">
+      <div style="font-size:14px;font-weight:700" id="print-titulo"></div>
+      <div style="font-size:11px;color:#555" id="print-subtitulo"></div>
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead><tr>
@@ -474,10 +510,38 @@
           <th style="text-align:left">Nome</th>
           <th>P1</th><th>P2</th><th>P3</th>
           <th>MT</th><th>N1</th><th>N2</th>
-          <th>MF</th><th>Situação</th>
+          <th>MF</th><th class="no-print">Situação</th>
+          <th class="sit-col-print" style="display:none">Situação</th>
         </tr></thead>
         <tbody id="rel-tbody"></tbody>
       </table>
+    </div>
+
+    <!-- Legenda impressão -->
+    <div class="print-only" style="margin-top:20px;border-top:1px solid #ccc;padding-top:12px">
+      <div style="font-weight:700;margin-bottom:6px;font-size:11px">LEGENDA E CRITÉRIOS DE AVALIAÇÃO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px;color:#333">
+        <div>
+          <b>Avaliações:</b><br>
+          P1, P2 — Seminários 1 e 2<br>
+          P3 — Seminário 3<br>
+          T1 a T4 — Relatórios de campo 1 a 4<br>
+          <br>
+          <b>Campos em branco</b> = não entregue (vale 0 no cálculo)
+        </div>
+        <div>
+          <b>Cálculo das notas:</b><br>
+          MT = Média(T1, T2, T3, T4) / 4<br>
+          N1 = (P1 + P2) / 2<br>
+          N2 = (MT + P3) / 2<br>
+          MF = (N1 + N2) / 2<br>
+          <br>
+          <b>Aprovação:</b> MF ≥ 6,0
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:9px;color:#888">
+        Emitido em: <span id="print-data"></span> · DiárioProf UFG/EECA · Hugo José Ribeiro
+      </div>
     </div>
   </div>
 </section>
@@ -1004,12 +1068,16 @@ const TODOS_CAMPOS = [...CAMPOS_P, ...CAMPOS_T];
 
 // Converte valor do campo: preenchido → número, vazio → 0
 function valOuZero(v) {
-  return (v !== undefined && v !== '' && !isNaN(parseFloat(v))) ? parseFloat(v) : 0;
+  if (v === undefined || v === null || v === '') return 0;
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
 }
 
 // Verifica se campo foi preenchido
 function preenchido(v) {
-  return v !== undefined && v !== '' && !isNaN(parseFloat(v));
+  if (v === undefined || v === null || v === '') return false;
+  const n = parseFloat(v);
+  return !isNaN(n);
 }
 
 function calcNotas(mat) {
@@ -1399,6 +1467,37 @@ function confirmAddStudent() {
 }
 
 // ══════════════════════════════════════════════════════════
+//  PDF / IMPRESSÃO
+// ══════════════════════════════════════════════════════════
+function gerarPDF() {
+  const disc = state.disciplinas.find(d => d.id === ctx.discId);
+  const titulo = disc ? `${disc.codigo} · ${disc.nome}${disc.sufixo?' — '+disc.sufixo:''}` : 'Relatório';
+  document.getElementById('print-titulo').textContent = titulo + ` · ${ctx.ano}.${ctx.semestre}`;
+  document.getElementById('print-subtitulo').textContent =
+    `Disciplina ministrada pelo Prof. Hugo José Ribeiro — UFG/EECA`;
+  document.getElementById('print-data').textContent =
+    new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  // Preencher coluna de situação para impressão
+  document.querySelectorAll('#rel-tbody tr').forEach(tr => {
+    const mfCell = tr.querySelector('td:nth-child(9)');
+    const mf = mfCell ? parseFloat(mfCell.textContent) : NaN;
+    let printCols = tr.querySelectorAll('.sit-col-print');
+    if (!printCols.length) {
+      const td = document.createElement('td');
+      td.className = 'sit-col-print';
+      td.style.display = 'none';
+      td.style.textAlign = 'center';
+      td.style.fontWeight = '700';
+      tr.appendChild(td);
+      printCols = [td];
+    }
+    printCols[0].textContent = isNaN(mf) ? '—' : mf >= 6 ? 'APROVADO' : 'REPROVADO';
+    printCols[0].style.color = isNaN(mf) ? '#888' : mf >= 6 ? '#1a7a4a' : '#c0392b';
+  });
+  window.print();
+}
+
+// ══════════════════════════════════════════════════════════
 //  RELATÓRIO
 // ══════════════════════════════════════════════════════════
 function renderRelatorio() {
@@ -1429,7 +1528,8 @@ function renderRelatorio() {
         <td class="calc">${fmt(N1)}</td>
         <td class="calc">${fmt(N2)}</td>
         <td class="calc ${mfCls}">${MF.toFixed(2)}</td>
-        <td>${probBarHTML(a.matricula)}</td>`;
+        <td class="no-print">${probBarHTML(a.matricula)}</td>
+        <td class="sit-col-print" style="display:none;text-align:center;font-weight:700;color:${MF>=6?'#1a7a4a':'#c0392b'}">${feitas===7?(MF>=6?'APROVADO':'REPROVADO'):'EM ANDAMENTO'}</td>`;
       tbody.appendChild(tr);
     });
   });
@@ -1540,7 +1640,7 @@ function switchTab(name, btn) {
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (name === 'relatorio') renderRelatorio();
+  if (name === 'relatorio') renderRelatorio();  // sempre re-renderiza ao abrir
   if (name === 'config')    renderConfig();
   if (name === 'importar')  renderAlunosMgr();
 }
