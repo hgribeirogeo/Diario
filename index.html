@@ -310,6 +310,11 @@
   .prob-sub   { font-size: .68rem; color: var(--muted); }
 
 
+  /* ── ANALYTICS ── */
+  #an-kpis .stat-box .val { font-size:1.4rem; }
+  #an-heatmap-table { border-collapse: separate; border-spacing: 2px; }
+  #an-heatmap-table tbody tr:hover td { opacity: .85; }
+
   /* ── IMPRESSÃO ── */
   @media print {
     body { background: #fff !important; color: #000 !important; font-size: 11px; }
@@ -392,6 +397,7 @@
     <button class="tab-btn"        onclick="switchTab('diario',this)">📓 Diário de Aulas</button>
     <button class="tab-btn"        onclick="switchTab('importar',this)">📁 Importar PDF</button>
     <button class="tab-btn"        onclick="switchTab('relatorio',this)">📈 Relatório</button>
+    <button class="tab-btn"        onclick="switchTab('analytics',this)">🔬 Analytics</button>
     <button class="tab-btn"        onclick="switchTab('config',this)">⚙ Config</button>
   </div>
 
@@ -556,6 +562,82 @@
   </div>
 </section>
 
+
+<!-- ══ ANALYTICS ══ -->
+<section class="section" id="tab-analytics">
+
+  <!-- Seletor de turma para analytics -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+    <div class="turma-selector" id="turma-sel-analytics" style="margin:0"></div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);margin-left:auto">
+      <input type="checkbox" id="analytics-todas-turmas" onchange="renderAnalytics()"
+             style="accent-color:var(--accent)"> Todas as turmas
+    </label>
+  </div>
+
+  <!-- 1. KPIs rápidos -->
+  <div class="stats-row" id="an-kpis"></div>
+
+  <!-- 2. Faixas de risco + evolução temporal -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">📊 Distribuição por Faixa de Risco</div>
+      <canvas id="an-faixas" height="220"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Evolução — Médias por Avaliação (ordem cronológica)</div>
+      <canvas id="an-evolucao" height="220"></canvas>
+    </div>
+  </div>
+
+  <!-- 3. Dificuldade por avaliação + correlação -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">🎯 Diagnóstico — Média por Avaliação</div>
+      <div id="an-diagnostico-wrap">
+        <canvas id="an-diagnostico" height="220"></canvas>
+        <div id="an-diagnostico-alert" style="margin-top:10px;font-size:.8rem"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔗 Correlação Seminários × Relatórios</div>
+      <canvas id="an-correlacao" height="220"></canvas>
+      <div id="an-correlacao-txt" style="font-size:.78rem;color:var(--muted);margin-top:8px;text-align:center"></div>
+    </div>
+  </div>
+
+  <!-- 4. Mapa de calor -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">🔥 Mapa de Calor — Aluno × Avaliação</div>
+    <div class="table-wrap">
+      <table id="an-heatmap-table" style="font-size:.75rem"></table>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:10px;font-size:.72rem;align-items:center;flex-wrap:wrap">
+      <span>Escala:</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:14px;background:#c0392b;border-radius:3px"></span> 0–3 Crítico</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:14px;background:#e67e22;border-radius:3px"></span> 3–5 Atenção</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:14px;background:#f0c040;border-radius:3px"></span> 5–6 Limiar</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:14px;background:#27ae60;border-radius:3px"></span> 6–8 Bom</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:14px;background:#1a7a4a;border-radius:3px"></span> 8–10 Excelente</span>
+      <span style="color:var(--muted)">· Cinza = não entregue</span>
+    </div>
+  </div>
+
+  <!-- 5. Atenção imediata + comparação turmas -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">🚨 Atenção Imediata — MF projetada &lt; 4 com ≥ 3 entregas</div>
+      <div id="an-atencao"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚖ Comparação entre Turmas</div>
+      <canvas id="an-comparacao" height="220"></canvas>
+      <div id="an-comparacao-txt" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+  </div>
+
+</section>
+
 <!-- ══ CONFIG ══ -->
 <section class="section" id="tab-config">
   <div class="card">
@@ -700,7 +782,7 @@ let ctx = {
 };
 
 // Charts
-let chartMF, chartAval;
+let chartMF, chartAval, anFaixas, anEvolucao, anDiag, anCorr, anComp;
 
 // ── Chave do semestre ──
 function semKey() { return `${ctx.ano}_${ctx.semestre}`; }
@@ -1673,6 +1755,313 @@ function limparTurma() {
   saveAll(); renderAll(); toast('Turma limpa.');
 }
 
+
+// ══════════════════════════════════════════════════════════
+//  ANALYTICS — v1.1
+// ══════════════════════════════════════════════════════════
+
+// helpers de cor para heatmap
+function heatColor(v, preenchido) {
+  if (!preenchido) return '#2a3050';   // cinza = não entregue
+  if (v < 3)  return '#c0392b';
+  if (v < 5)  return '#e67e22';
+  if (v < 6)  return '#f0c040';
+  if (v < 8)  return '#27ae60';
+  return '#1a7a4a';
+}
+function heatTxt(v, preenchido) {
+  if (!preenchido) return '#4a5070';
+  return v < 5 ? '#fff' : '#fff';
+}
+
+// Correlação de Pearson
+function pearson(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return 0;
+  const mx = xs.reduce((a,b)=>a+b,0)/n;
+  const my = ys.reduce((a,b)=>a+b,0)/n;
+  const num = xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0);
+  const dx  = Math.sqrt(xs.reduce((s,x)=>s+(x-mx)**2,0));
+  const dy  = Math.sqrt(ys.reduce((s,y)=>s+(y-my)**2,0));
+  return (dx && dy) ? num/(dx*dy) : 0;
+}
+
+function destroyChart(ref) { try { if (ref) ref.destroy(); } catch(e) {} }
+
+function anAlunos() {
+  const todas = document.getElementById('analytics-todas-turmas')?.checked;
+  if (todas) return Object.values(ctxTurmas()).flatMap(t => t.alunos);
+  return ctxAlunos();
+}
+
+let anTurmaAtiva = null;
+
+function renderAnalytics() {
+  // sincronizar turma ativa
+  if (!anTurmaAtiva || !ctxTurmas()[anTurmaAtiva]) {
+    anTurmaAtiva = ctx.turmaId;
+  }
+  // Seletor de turma
+  const cont = document.getElementById('turma-sel-analytics');
+  if (cont) {
+    cont.innerHTML = Object.keys(ctxTurmas()).map(t =>
+      `<button class="turma-btn${t === anTurmaAtiva ? ' active' : ''}"
+        onclick="anTurmaAtiva='${t}';document.getElementById('analytics-todas-turmas').checked=false;renderAnalytics()">${t}
+        <span style="font-size:.7rem;color:var(--muted)"> (${ctxTurmas()[t].alunos.length})</span>
+      </button>`
+    ).join('');
+  }
+
+  const todas  = document.getElementById('analytics-todas-turmas')?.checked;
+  const alunos = todas
+    ? Object.values(ctxTurmas()).flatMap(t => t.alunos)
+    : (ctxTurmas()[anTurmaAtiva]?.alunos || []);
+
+  const CAMPOS = ['P1','P2','P3','T1','T2','T3','T4'];
+  const ORDEM_CRONOLOGICA = ['P1','T1','P2','T2','T3','P3','T4']; // ordem típica de entrega
+
+  // ── 1. KPIs ──
+  const mfs   = alunos.map(a => calcNotas(a.matricula).MF);
+  const feitas = alunos.map(a => entregasFeitas(a.matricula));
+  const comEntrega = alunos.filter((_,i) => feitas[i] > 0);
+  const nAprov  = mfs.filter((m,i) => feitas[i]===7 && m >= 6).length;
+  const nReprov = mfs.filter((m,i) => feitas[i]===7 && m < 6).length;
+  const nAndamento = alunos.length - nAprov - nReprov;
+  const mediaGeral = comEntrega.length
+    ? (comEntrega.map(a=>calcNotas(a.matricula).MF).reduce((a,b)=>a+b,0)/comEntrega.length).toFixed(2)
+    : '—';
+  // avaliação mais difícil
+  const mediasC = CAMPOS.map(k => {
+    const vals = alunos.map(a => { const n=ctxNotas()[a.matricula]||{}; return preenchido(n[k])?parseFloat(n[k]):null; }).filter(v=>v!==null);
+    return { k, m: vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null, n: vals.length };
+  });
+  const maisD = mediasC.filter(x=>x.m!==null).sort((a,b)=>a.m-b.m)[0];
+  const melhor = mediasC.filter(x=>x.m!==null).sort((a,b)=>b.m-a.m)[0];
+
+  document.getElementById('an-kpis').innerHTML = `
+    <div class="stat-box"><div class="val">${alunos.length}</div><div class="lbl">Alunos</div></div>
+    <div class="stat-box"><div class="val" style="color:var(--accent2)">${nAprov}</div><div class="lbl">Aprovados</div></div>
+    <div class="stat-box"><div class="val" style="color:var(--danger)">${nReprov}</div><div class="lbl">Reprovados</div></div>
+    <div class="stat-box"><div class="val" style="color:var(--warn)">${nAndamento}</div><div class="lbl">Em andamento</div></div>
+    <div class="stat-box"><div class="val">${mediaGeral}</div><div class="lbl">MF média</div></div>
+    <div class="stat-box">
+      <div class="val" style="color:var(--danger);font-size:1rem">${maisD?maisD.k:'—'}</div>
+      <div class="lbl">Mais difícil (${maisD?maisD.m.toFixed(1):'?'})</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" style="color:var(--accent2);font-size:1rem">${melhor?melhor.k:'—'}</div>
+      <div class="lbl">Melhor média (${melhor?melhor.m.toFixed(1):'?'})</div>
+    </div>
+  `;
+
+  // ── 2. Faixas de risco ──
+  const faixas = [0,0,0,0,0]; // 0-3, 3-5, 5-6, 6-8, 8-10
+  mfs.forEach((m,i) => {
+    if (feitas[i] === 0) return;
+    if (m < 3) faixas[0]++;
+    else if (m < 5) faixas[1]++;
+    else if (m < 6) faixas[2]++;
+    else if (m < 8) faixas[3]++;
+    else faixas[4]++;
+  });
+  destroyChart(anFaixas);
+  anFaixas = new Chart(document.getElementById('an-faixas').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['0–3 Crítico','3–5 Atenção','5–6 Limiar','6–8 Bom','8–10 Excelente'],
+      datasets: [{ data: faixas, borderRadius: 4,
+        backgroundColor: ['#c0392b','#e67e22','#f0c040','#27ae60','#1a7a4a'] }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}},
+      scales:{ x:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6',font:{size:10}}},
+               y:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6',stepSize:1}} }}
+  });
+
+  // ── 3. Evolução cronológica ──
+  const mediasCron = ORDEM_CRONOLOGICA.map(k => {
+    const vals = alunos.map(a => {
+      const n = ctxNotas()[a.matricula]||{};
+      return preenchido(n[k]) ? parseFloat(n[k]) : null;
+    }).filter(v=>v!==null);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  });
+  destroyChart(anEvolucao);
+  anEvolucao = new Chart(document.getElementById('an-evolucao').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: ORDEM_CRONOLOGICA,
+      datasets: [{
+        label: 'Média da turma', data: mediasCron,
+        borderColor: '#3d8ef0', backgroundColor: '#3d8ef022',
+        pointBackgroundColor: mediasCron.map(v => v===null?'#444': v>=6?'#27c98f':v>=4?'#f0a030':'#e05555'),
+        pointRadius: 6, pointHoverRadius: 8,
+        tension: 0.35, fill: true, spanGaps: true
+      },{
+        label: 'Linha de aprovação (6)', data: ORDEM_CRONOLOGICA.map(()=>6),
+        borderColor: '#27c98f55', borderDash:[6,4], pointRadius:0, borderWidth:1.5, fill:false
+      }]
+    },
+    options: { responsive:true,
+      plugins:{ legend:{labels:{color:'#7a82a6',font:{size:11}}} },
+      scales:{ x:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}},
+               y:{min:0,max:10,grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}} }}
+  });
+
+  // ── 4. Diagnóstico por avaliação ──
+  const medDiag = CAMPOS.map(k => {
+    const vals = alunos.map(a=>{const n=ctxNotas()[a.matricula]||{};return preenchido(n[k])?parseFloat(n[k]):null;}).filter(v=>v!==null);
+    return { k, m: vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0, n: vals.length };
+  });
+  destroyChart(anDiag);
+  anDiag = new Chart(document.getElementById('an-diagnostico').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: medDiag.map(x=>`${x.k}\n(n=${x.n})`),
+      datasets: [{
+        label: 'Média', data: medDiag.map(x=>x.n>0?parseFloat(x.m.toFixed(2)):null),
+        backgroundColor: medDiag.map(x=>x.m>=6?'#27c98f':x.m>=4?'#f0a030':'#e05555'),
+        borderRadius: 4
+      }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}},
+      scales:{ x:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}},
+               y:{min:0,max:10,grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}} }}
+  });
+  // Alerta da avaliação mais difícil
+  if (maisD && maisD.m < 5) {
+    document.getElementById('an-diagnostico-alert').innerHTML =
+      `<span style="color:var(--warn)">⚠ <b>${maisD.k}</b> tem média ${maisD.m.toFixed(2)} — abaixo de 5. Considere revisar o conteúdo ou o critério de avaliação.</span>`;
+  } else {
+    document.getElementById('an-diagnostico-alert').innerHTML = '';
+  }
+
+  // ── 5. Correlação seminários × relatórios ──
+  const pts = alunos.map(a => {
+    const n = ctxNotas()[a.matricula]||{};
+    const semMedia = (valOuZero(n.P1)+valOuZero(n.P2)+valOuZero(n.P3))/3;
+    const relMedia = (valOuZero(n.T1)+valOuZero(n.T2)+valOuZero(n.T3)+valOuZero(n.T4))/4;
+    const temSem = preenchido(n.P1)||preenchido(n.P2)||preenchido(n.P3);
+    const temRel = preenchido(n.T1)||preenchido(n.T2)||preenchido(n.T3)||preenchido(n.T4);
+    return temSem && temRel ? { x: parseFloat(semMedia.toFixed(2)), y: parseFloat(relMedia.toFixed(2)), label: a.nome.split(' ')[0] } : null;
+  }).filter(Boolean);
+
+  const r = pearson(pts.map(p=>p.x), pts.map(p=>p.y));
+  const rAbs = Math.abs(r);
+  const corrDesc = rAbs > 0.7 ? 'forte' : rAbs > 0.4 ? 'moderada' : 'fraca';
+  const corrDir  = r > 0 ? 'positiva' : 'negativa';
+
+  destroyChart(anCorr);
+  anCorr = new Chart(document.getElementById('an-correlacao').getContext('2d'), {
+    type: 'scatter',
+    data: { datasets: [{
+      label: 'Alunos', data: pts,
+      backgroundColor: '#3d8ef0aa', pointRadius: 7, pointHoverRadius: 9
+    }]},
+    options: { responsive:true,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => `${ctx.raw.label}: Sem=${ctx.raw.x} Rel=${ctx.raw.y}` }}},
+      scales:{
+        x:{min:0,max:10,title:{display:true,text:'Média Seminários',color:'#7a82a6'},
+           grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}},
+        y:{min:0,max:10,title:{display:true,text:'Média Relatórios',color:'#7a82a6'},
+           grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}}
+      }}
+  });
+  document.getElementById('an-correlacao-txt').textContent =
+    pts.length >= 3
+      ? `r = ${r.toFixed(2)} — correlação ${corrDesc} ${corrDir} (${pts.length} alunos com ambas as notas)`
+      : 'Dados insuficientes para correlação (aguardando mais entregas)';
+
+  // ── 6. Mapa de calor ──
+  const table = document.getElementById('an-heatmap-table');
+  const thead = `<thead><tr>
+    <th style="text-align:left;background:var(--surface);padding:6px 10px;font-size:.72rem;color:var(--muted);white-space:nowrap">Aluno</th>
+    ${CAMPOS.map(k=>`<th style="background:var(--surface);padding:6px 8px;font-size:.72rem;color:var(--muted)">${k}</th>`).join('')}
+    <th style="background:var(--surface);padding:6px 8px;font-size:.72rem;color:var(--accent)">MF</th>
+  </tr></thead>`;
+  const tbody = '<tbody>' + alunos.map(a => {
+    const n   = ctxNotas()[a.matricula] || {};
+    const { MF } = calcNotas(a.matricula);
+    const cells = CAMPOS.map(k => {
+      const ok = preenchido(n[k]);
+      const v  = ok ? parseFloat(n[k]) : 0;
+      return `<td style="text-align:center;padding:4px 6px;
+        background:${heatColor(v,ok)};color:${heatTxt(v,ok)};
+        font-size:.72rem;font-weight:600;border-radius:3px;min-width:36px">
+        ${ok ? v.toFixed(1) : '·'}
+      </td>`;
+    }).join('');
+    const mfColor = entregasFeitas(a.matricula)===0?'#2a3050':MF>=6?'#1a7a4a':MF>=4?'#e67e22':'#c0392b';
+    return `<tr>
+      <td style="padding:4px 10px;font-size:.75rem;white-space:nowrap;color:var(--text)">${a.nome.split(' ').slice(0,2).join(' ')}</td>
+      ${cells}
+      <td style="text-align:center;padding:4px 6px;background:${mfColor};color:#fff;font-size:.72rem;font-weight:700;border-radius:3px">${entregasFeitas(a.matricula)>0?MF.toFixed(2):'—'}</td>
+    </tr>`;
+  }).join('') + '</tbody>';
+  table.innerHTML = thead + tbody;
+
+  // ── 7. Atenção imediata ──
+  const criticos = alunos.filter(a => {
+    const f = entregasFeitas(a.matricula);
+    return f >= 3 && calcNotas(a.matricula).MF < 4;
+  }).map(a => {
+    const { MF } = calcNotas(a.matricula);
+    const f = entregasFeitas(a.matricula);
+    return { nome: a.nome, mf: MF, feitas: f };
+  }).sort((a,b)=>a.mf-b.mf);
+
+  const divAt = document.getElementById('an-atencao');
+  if (!criticos.length) {
+    divAt.innerHTML = '<p style="color:var(--accent2);font-size:.85rem;padding:20px;text-align:center">✅ Nenhum aluno em situação crítica com ≥ 3 entregas.</p>';
+  } else {
+    divAt.innerHTML = criticos.map(a => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:.85rem;flex:1;color:var(--text)">${a.nome}</span>
+        <span style="font-size:.75rem;color:var(--muted)">${a.feitas}/7 entregas</span>
+        <span style="font-weight:700;color:var(--danger);min-width:50px;text-align:right">MF ${a.mf.toFixed(2)}</span>
+      </div>`).join('') +
+      `<p style="font-size:.75rem;color:var(--muted);margin-top:8px">${criticos.length} aluno(s) em situação crítica — contato recomendado.</p>`;
+  }
+
+  // ── 8. Comparação entre turmas ──
+  const turmasIds  = Object.keys(ctxTurmas());
+  const compLabels = ['P1','P2','P3','T1','T2','T3','T4','MF'];
+  const colors     = ['#3d8ef0','#27c98f','#f0a030','#e05555','#a78bfa'];
+  const datasets   = turmasIds.map((tid, i) => {
+    const al = ctxTurmas()[tid].alunos;
+    const medias = ['P1','P2','P3','T1','T2','T3','T4'].map(k => {
+      const vals = al.map(a=>{const n=ctxNotas()[a.matricula]||{};return preenchido(n[k])?parseFloat(n[k]):null;}).filter(v=>v!==null);
+      return vals.length ? parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)) : 0;
+    });
+    const mfVals = al.map(a=>calcNotas(a.matricula).MF);
+    const mfMed  = mfVals.length ? parseFloat((mfVals.reduce((a,b)=>a+b,0)/mfVals.length).toFixed(2)) : 0;
+    return { label: tid, data: [...medias, mfMed],
+             backgroundColor: colors[i % colors.length] + '99',
+             borderColor: colors[i % colors.length], borderWidth:2, borderRadius:4 };
+  });
+  destroyChart(anComp);
+  anComp = new Chart(document.getElementById('an-comparacao').getContext('2d'), {
+    type: 'bar',
+    data: { labels: compLabels, datasets },
+    options: { responsive:true,
+      plugins:{ legend:{labels:{color:'#7a82a6'}} },
+      scales:{ x:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}},
+               y:{min:0,max:10,grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}} }}
+  });
+  // Texto comparativo de MF
+  if (turmasIds.length > 1) {
+    const mfComparativo = turmasIds.map(tid => {
+      const al = ctxTurmas()[tid].alunos;
+      const mfs2 = al.map(a=>calcNotas(a.matricula).MF);
+      const med = mfs2.length ? (mfs2.reduce((a,b)=>a+b,0)/mfs2.length).toFixed(2) : '—';
+      return `${tid}: MF média ${med}`;
+    });
+    document.getElementById('an-comparacao-txt').textContent = mfComparativo.join(' · ');
+  } else {
+    document.getElementById('an-comparacao-txt').textContent = 'Adicione mais turmas para comparação.';
+  }
+}
+
 // ══════════════════════════════════════════════════════════
 //  TABS / MODAL / TOAST / UTIL
 // ══════════════════════════════════════════════════════════
@@ -1681,7 +2070,8 @@ function switchTab(name, btn) {
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (name === 'relatorio') renderRelatorio();  // sempre re-renderiza ao abrir
+  if (name === 'relatorio') renderRelatorio();
+  if (name === 'analytics') renderAnalytics();
   if (name === 'config')    renderConfig();
   if (name === 'importar')  renderAlunosMgr();
 }
