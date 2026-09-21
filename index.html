@@ -3,185 +3,174 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Diário do Professor — EEC0274</title>
+<title>DiárioProf — UFG/EECA</title>
 <style>
   :root {
-    --bg:        #0f1117;
-    --surface:   #181c27;
-    --card:      #1e2335;
-    --border:    #2a3050;
-    --accent:    #3d8ef0;
-    --accent2:   #27c98f;
-    --warn:      #f0a030;
-    --danger:    #e05555;
-    --text:      #e8eaf6;
-    --muted:     #7a82a6;
-    --input-bg:  #252a40;
-    --header-h:  56px;
-    --radius:    8px;
+    --bg:       #0f1117;
+    --surface:  #181c27;
+    --card:     #1e2335;
+    --border:   #2a3050;
+    --accent:   #3d8ef0;
+    --accent2:  #27c98f;
+    --warn:     #f0a030;
+    --danger:   #e05555;
+    --text:     #e8eaf6;
+    --muted:    #7a82a6;
+    --inp:      #252a40;
+    --hh:       56px;
+    --r:        8px;
     font-size: 14px;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    min-height: 100vh;
-  }
+  body { background: var(--bg); color: var(--text);
+         font-family: 'Inter','Segoe UI',system-ui,sans-serif; min-height: 100vh; }
 
   /* ── TOPBAR ── */
   header {
     position: sticky; top: 0; z-index: 100;
-    height: var(--header-h);
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 12px;
-    padding: 0 20px;
-    box-shadow: 0 2px 12px #0008;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 20px; box-shadow: 0 2px 12px #0008;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    min-height: var(--hh);
   }
-  .logo { font-size: 1.05rem; font-weight: 700; color: var(--accent); letter-spacing: .03em; }
+  .logo { font-size: 1rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
   .logo span { color: var(--accent2); }
-  .subtitle { color: var(--muted); font-size: .78rem; }
-  header .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  .context-selects { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  select.ctx {
+    background: var(--inp); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; font-size: .82rem; cursor: pointer;
+  }
+  select.ctx:focus { outline: none; border-color: var(--accent); }
+  select.ctx.disciplina { min-width: 280px; }
+  select.ctx.semestre   { min-width: 110px; }
+  select.ctx.ano        { min-width: 80px;  }
+
+  .turma-badge {
+    background: #3d8ef022; border: 1px solid #3d8ef055;
+    color: var(--accent); border-radius: 20px;
+    padding: 3px 10px; font-size: .75rem; font-weight: 700;
+    white-space: nowrap;
+  }
+
+  header .right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
   /* ── TABS ── */
   .tab-bar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex; gap: 2px; padding: 0 16px;
-    overflow-x: auto;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; gap: 2px; padding: 0 16px; overflow-x: auto;
   }
   .tab-btn {
     padding: 10px 18px; border: none; background: none;
     color: var(--muted); cursor: pointer; font-size: .85rem;
-    border-bottom: 2px solid transparent; transition: all .15s;
-    white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap;
   }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
   .tab-btn:hover:not(.active) { color: var(--text); }
 
   /* ── LAYOUT ── */
   main { padding: 20px; max-width: 1600px; margin: 0 auto; }
-
   .section { display: none; }
   .section.active { display: block; }
 
   /* ── CARDS ── */
   .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 20px;
-    margin-bottom: 16px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 16px 20px; margin-bottom: 16px;
   }
   .card-title {
-    font-size: .8rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .08em;
-    color: var(--muted); margin-bottom: 12px;
+    font-size: .78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--muted); margin-bottom: 12px;
   }
 
-  /* ── TURMA SELECTOR ── */
-  .turma-selector {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
-  }
-  .turma-btn {
-    padding: 6px 16px; border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--input-bg); color: var(--text);
-    cursor: pointer; font-size: .85rem; transition: all .15s;
-  }
-  .turma-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-  /* ── STATS ROW ── */
+  /* ── STATS ── */
   .stats-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr));
     gap: 12px; margin-bottom: 20px;
   }
   .stat-box {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    text-align: center;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 14px 16px; text-align: center;
   }
   .stat-box .val { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
   .stat-box .lbl { font-size: .72rem; color: var(--muted); margin-top: 2px; }
 
-  /* ── TABLE NOTAS ── */
+  /* ── TABLE ── */
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: .82rem; }
   thead tr th {
-    background: var(--surface);
-    padding: 8px 10px;
-    text-align: center;
-    color: var(--muted);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-    position: sticky; top: var(--header-h);
+    background: var(--surface); padding: 8px 10px; text-align: center;
+    color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border);
+    white-space: nowrap; position: sticky; top: 0;
   }
-  thead tr th:nth-child(1),
-  thead tr th:nth-child(2) { text-align: left; }
-  .th-group {
-    background: var(--bg) !important;
-    color: var(--accent2) !important;
-    font-size: .7rem; letter-spacing: .05em;
-    border-bottom: 1px solid var(--border);
-  }
+  thead tr th:nth-child(1), thead tr th:nth-child(2) { text-align: left; }
+  .th-group { background: var(--bg) !important; color: var(--accent2) !important;
+              font-size: .7rem; letter-spacing: .05em; }
   tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
   tbody tr:hover { background: #ffffff08; }
   td { padding: 6px 10px; }
   td:nth-child(1) { font-family: monospace; color: var(--muted); font-size: .78rem; }
-  td:nth-child(2) { font-weight: 500; max-width: 220px; }
+  td:nth-child(2) { font-weight: 500; }
 
   input.nota {
-    width: 52px; text-align: center;
-    background: var(--input-bg); color: var(--text);
+    width: 54px; text-align: center;
+    background: var(--inp); color: var(--text);
     border: 1px solid var(--border); border-radius: 4px;
-    padding: 4px 6px; font-size: .82rem;
-    transition: border-color .15s;
+    padding: 4px 6px; font-size: .82rem; transition: border-color .15s;
   }
   input.nota:focus { outline: none; border-color: var(--accent); }
   input.nota.filled { border-color: var(--accent2); }
 
   .calc { color: var(--accent2); font-weight: 700; text-align: center; }
-  .calc.warn { color: var(--warn); }
-  .calc.ok { color: var(--accent2); }
+  .calc.ok   { color: var(--accent2); }
   .calc.fail { color: var(--danger); }
-
-  /* ── IMPORT SECTION ── */
-  .drop-area {
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    padding: 30px;
-    text-align: center;
-    color: var(--muted);
-    cursor: pointer;
-    transition: border-color .2s, background .2s;
-    margin-bottom: 16px;
-  }
-  .drop-area:hover, .drop-area.drag-over {
-    border-color: var(--accent); background: #3d8ef012;
-    color: var(--text);
-  }
-  .drop-area .icon { font-size: 2rem; margin-bottom: 8px; }
+  .calc.warn { color: var(--warn); }
 
   /* ── BUTTONS ── */
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 7px 14px; border-radius: 6px; border: none;
-    cursor: pointer; font-size: .82rem; font-weight: 600;
-    transition: opacity .15s;
+    cursor: pointer; font-size: .82rem; font-weight: 600; transition: opacity .15s;
   }
   .btn:hover { opacity: .85; }
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-success { background: var(--accent2); color: #0f1117; }
-  .btn-warn    { background: var(--warn); color: #0f1117; }
+  .btn-ghost   { background: var(--inp); color: var(--text); border: 1px solid var(--border); }
   .btn-danger  { background: var(--danger); color: #fff; }
-  .btn-ghost   { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-warn    { background: var(--warn); color: #0f1117; }
+  .btn-sm      { padding: 4px 10px; font-size: .75rem; }
+
+  /* ── TURMA SELECTOR ── */
+  .turma-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .turma-btn {
+    padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--inp); color: var(--text); cursor: pointer; font-size: .85rem;
+    transition: all .15s;
+  }
+  .turma-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── DIÁRIO ── */
+  textarea.annotation {
+    width: 100%; background: var(--inp); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; font-size: .82rem; resize: vertical; min-height: 64px;
+  }
+  textarea.annotation:focus { outline: none; border-color: var(--accent); }
+
+  input[type="date"], input[type="text"], input[type="number"], select.form-sel {
+    background: var(--inp); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: .83rem;
+  }
+  input:focus, select.form-sel:focus { outline: none; border-color: var(--accent); }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: .7rem; font-weight: 700;
+  }
+  .badge-b01 { background:#3d8ef033; color:var(--accent); }
+  .badge-b02 { background:#27c98f33; color:var(--accent2); }
 
   /* ── TOAST ── */
   #toast {
@@ -189,8 +178,7 @@
     background: var(--accent2); color: #0f1117;
     padding: 10px 18px; border-radius: 8px;
     font-weight: 700; font-size: .85rem;
-    display: none; z-index: 9999;
-    box-shadow: 0 4px 20px #0006;
+    display: none; z-index: 9999; box-shadow: 0 4px 20px #0006;
   }
 
   /* ── MODAL ── */
@@ -202,119 +190,96 @@
   .modal-backdrop.open { display: flex; }
   .modal {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 28px; min-width: 340px;
-    max-width: 90vw;
+    border-radius: 12px; padding: 28px; min-width: 340px; max-width: 92vw;
   }
-  .modal h3 { margin-bottom: 16px; font-size: 1rem; }
-  .modal pre {
-    background: var(--input-bg); border-radius: 6px;
-    padding: 14px; font-size: .75rem; max-height: 260px;
-    overflow-y: auto; white-space: pre-wrap;
-    border: 1px solid var(--border);
-  }
+  .modal h3 { margin-bottom: 14px; font-size: 1rem; }
+  .modal-row { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .modal-row label { font-size: .8rem; color: var(--muted); }
+  .modal-row input, .modal-row select { width: 100%; margin-top: 3px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
 
-  /* ── FREQUENCIA ── */
-  input.freq-check { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent2); }
-  .aula-date { font-size: .78rem; color: var(--muted); }
-
-  /* ── AULAS HEADER ── */
-  .aulas-bar {
-    display: flex; gap: 8px; align-items: center;
-    flex-wrap: wrap; margin-bottom: 16px;
+  /* ── IMPORTAR ── */
+  .drop-area {
+    border: 2px dashed var(--border); border-radius: var(--r);
+    padding: 28px; text-align: center; color: var(--muted);
+    cursor: pointer; transition: border-color .2s, background .2s; margin-bottom: 14px;
   }
-  input[type="date"], input[type="text"], select {
-    background: var(--input-bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 10px; font-size: .83rem;
+  .drop-area:hover, .drop-area.drag-over {
+    border-color: var(--accent); background: #3d8ef012; color: var(--text);
   }
-  input[type="date"]:focus, input[type="text"]:focus, select:focus {
-    outline: none; border-color: var(--accent);
-  }
+  .drop-area .icon { font-size: 2rem; margin-bottom: 8px; }
 
-  /* ── DIARIO ANOTACOES ── */
-  textarea.annotation {
-    width: 100%; background: var(--input-bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 8px 10px; font-size: .82rem; resize: vertical;
-    min-height: 60px;
-  }
-  textarea.annotation:focus { outline: none; border-color: var(--accent); }
+  /* ── RELATÓRIO ── */
+  .sit-aprovado  { color: var(--accent2); font-weight: 700; }
+  .sit-reprovado { color: var(--danger);  font-weight: 700; }
+  .sit-pendente  { color: var(--warn);    font-weight: 700; }
 
-  /* ── TURMA BADGE ── */
-  .badge {
-    display: inline-block;
-    padding: 2px 8px; border-radius: 20px;
-    font-size: .7rem; font-weight: 700;
-  }
-  .badge-b01 { background: #3d8ef033; color: var(--accent); }
-  .badge-b02 { background: #27c98f33; color: var(--accent2); }
-
-  /* ── FREQ PERCENT ── */
-  .freq-bar-wrap { display: flex; align-items: center; gap: 8px; }
-  .freq-bar { height: 6px; border-radius: 3px; background: var(--border); flex: 1; min-width: 60px; }
-  .freq-bar-fill { height: 100%; border-radius: 3px; background: var(--accent2); transition: width .3s; }
-  .freq-bar-fill.warn { background: var(--warn); }
-  .freq-bar-fill.danger { background: var(--danger); }
-
-  /* ── RESPONSIVE ── */
   @media (max-width: 700px) {
-    .stats-row { grid-template-columns: repeat(2, 1fr); }
-    input.nota { width: 44px; }
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    input.nota  { width: 44px; }
+    select.ctx.disciplina { min-width: 200px; }
   }
 </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
+<!-- ══ TOPBAR ══ -->
 <header>
-  <div>
-    <div class="logo">Diário<span>Prof</span></div>
-    <div class="subtitle">EEC0274 · Topografia e Geodésia · 2026.2</div>
+  <div class="logo">Diário<span>Prof</span></div>
+
+  <div class="context-selects">
+    <select class="ctx disciplina" id="sel-disciplina" onchange="onDisciplinaChange()">
+      <option value="EEC0274_Civil">EEC0274 · Topografia e Geodésia — Civil</option>
+      <option value="EEC0273_Ambiental">EEC0273 · Topografia e Geodésia — Ambiental</option>
+      <option value="EEC0296_SR">EEC0296 · Sensoriamento Remoto</option>
+    </select>
+
+    <select class="ctx semestre" id="sel-semestre" onchange="onContextChange()">
+      <option value="1">…1</option>
+      <option value="2" selected>…2</option>
+    </select>
+
+    <select class="ctx ano" id="sel-ano" onchange="onContextChange()">
+      <!-- preenchido por JS -->
+    </select>
+
+    <span class="turma-badge" id="ctx-badge">—</span>
   </div>
+
   <div class="right">
-    <button class="btn btn-ghost" onclick="openImportJSON()">📥 Importar JSON</button>
-    <button class="btn btn-success" onclick="exportJSON()">📤 Exportar JSON</button>
-    <button class="btn btn-ghost" onclick="saveAll()">💾 Salvar</button>
-    <span id="save-status" style="font-size:.75rem;color:var(--muted)"></span>
+    <button class="btn btn-ghost btn-sm" onclick="openImportJSON()">📥 Importar JSON</button>
+    <button class="btn btn-success btn-sm" onclick="exportJSON()">📤 Exportar JSON</button>
+    <button class="btn btn-ghost btn-sm" onclick="saveAll()">💾 Salvar</button>
+    <span id="save-status" style="font-size:.73rem;color:var(--muted)"></span>
   </div>
 </header>
 
-<!-- TABS -->
+<!-- ══ TABS ══ -->
 <div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('notas')">📊 Notas</button>
-  <button class="tab-btn" onclick="switchTab('frequencia')">📋 Frequência</button>
-  <button class="tab-btn" onclick="switchTab('diario')">📓 Diário de Aulas</button>
-  <button class="tab-btn" onclick="switchTab('importar')">📁 Importar PDF</button>
-  <button class="tab-btn" onclick="switchTab('relatorio')">📈 Relatório</button>
+  <button class="tab-btn active" onclick="switchTab('notas',this)">📊 Notas</button>
+  <button class="tab-btn"        onclick="switchTab('diario',this)">📓 Diário de Aulas</button>
+  <button class="tab-btn"        onclick="switchTab('importar',this)">📁 Importar PDF</button>
+  <button class="tab-btn"        onclick="switchTab('relatorio',this)">📈 Relatório</button>
+  <button class="tab-btn"        onclick="switchTab('config',this)">⚙ Config</button>
 </div>
 
 <main>
 
-<!-- ══════════════════════════════════
-     ABA: NOTAS
-══════════════════════════════════ -->
+<!-- ══ NOTAS ══ -->
 <section class="section active" id="tab-notas">
-
-  <div class="turma-selector" id="turma-sel-notas">
-    <button class="turma-btn active" onclick="selectTurmaNotas('B01')">Turma B01 (25 alunos)</button>
-    <button class="turma-btn" onclick="selectTurmaNotas('B02')">Turma B02 (11 alunos)</button>
-  </div>
-
+  <div class="turma-selector" id="turma-sel-notas"></div>
   <div class="stats-row" id="stats-notas"></div>
-
   <div class="card">
-    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
       <span class="card-title" style="margin:0">Tabela de Notas</span>
       <span style="flex:1"></span>
-      <button class="btn btn-primary" onclick="calcAll()">⟳ Recalcular</button>
-      <button class="btn btn-ghost" onclick="exportCSV()">CSV ↓</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">CSV ↓</button>
+      <button class="btn btn-primary btn-sm" onclick="renderNotas()">⟳ Recalcular</button>
     </div>
-
-    <div style="margin-bottom:10px;font-size:.78rem;color:var(--muted)">
+    <div style="margin-bottom:10px;font-size:.77rem;color:var(--muted)">
       <b style="color:var(--text)">Fórmulas:</b>
-      MT = Média(T1..T4) · N1 = Média(P1,P2) · N2 = Média(MT,P3) · MF = Média(N1,N2)
+      MT = Média(T1…T4) · N1 = Média(P1,P2) · N2 = Média(MT,P3) · MF = Média(N1,N2)
     </div>
-
     <div class="table-wrap">
       <table id="notas-table">
         <thead>
@@ -341,123 +306,105 @@
   </div>
 </section>
 
-<!-- ══════════════════════════════════
-     ABA: FREQUÊNCIA
-══════════════════════════════════ -->
-<section class="section" id="tab-frequencia">
-
-  <div class="turma-selector" id="turma-sel-freq">
-    <button class="turma-btn active" onclick="selectTurmaFreq('B01')">Turma B01</button>
-    <button class="turma-btn" onclick="selectTurmaFreq('B02')">Turma B02</button>
-  </div>
-
-  <div class="aulas-bar">
-    <span class="card-title" style="margin:0">Aulas cadastradas:</span>
-    <input type="date" id="nova-aula-date">
-    <input type="text" id="nova-aula-desc" placeholder="Descrição (ex: Nivelamento geométrico)" style="width:220px">
-    <select id="nova-aula-ch" title="Carga horária da aula" style="width:70px">
-      <option value="2" selected>2h</option>
-      <option value="3">3h</option>
-      <option value="4">4h</option>
-      <option value="6">6h</option>
-    </select>
-    <button class="btn btn-primary" onclick="addAula()">+ Adicionar Aula</button>
-    <span style="font-size:.75rem;color:var(--muted)">· Clique em ✓/h na tabela para alternar presença/falta</span>
-  </div>
-
-  <div class="card">
-    <div class="table-wrap">
-      <table id="freq-table">
-        <thead id="freq-head"></thead>
-        <tbody id="freq-body"></tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════════════════════════
-     ABA: DIÁRIO
-══════════════════════════════════ -->
+<!-- ══ DIÁRIO ══ -->
 <section class="section" id="tab-diario">
-
-  <div class="turma-selector" id="turma-sel-diario">
-    <button class="turma-btn active" onclick="selectTurmaDiario('B01')">Turma B01</button>
-    <button class="turma-btn" onclick="selectTurmaDiario('B02')">Turma B02</button>
-  </div>
-
-  <div class="aulas-bar">
-    <span style="font-size:.82rem;color:var(--muted)">Registre conteúdo ministrado, observações e pendências por aula.</span>
+  <div class="turma-selector" id="turma-sel-diario"></div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-size:.82rem;color:var(--muted)">Conteúdo ministrado e observações por aula.</span>
     <span style="flex:1"></span>
-    <button class="btn btn-ghost" onclick="addDiarioEntry()">+ Nova entrada</button>
+    <button class="btn btn-primary btn-sm" onclick="addDiarioEntry()">+ Nova entrada</button>
   </div>
-
   <div id="diario-list"></div>
 </section>
 
-<!-- ══════════════════════════════════
-     ABA: IMPORTAR PDF
-══════════════════════════════════ -->
+<!-- ══ IMPORTAR ══ -->
 <section class="section" id="tab-importar">
   <div class="card">
-    <div class="card-title">Importar Lista de Frequência (PDF do SIGAA)</div>
+    <div class="card-title">Importar Lista de Frequência do SIGAA (PDF)</div>
     <div class="drop-area" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
       <div class="icon">📄</div>
-      <div style="font-weight:600">Clique ou arraste PDFs do SIGAA aqui</div>
-      <div style="font-size:.78rem;margin-top:8px;color:var(--muted);line-height:1.6">
-        <b style="color:var(--accent2)">Mapa de frequência</b> (mapa_EEC0274_*.pdf) → importa <b>todas as datas e faltas automaticamente</b><br>
-        <b style="color:var(--accent)">Lista de presença</b> (listapresenca_EEC0274_B0*.pdf) → importa lista de alunos
+      <div style="font-weight:600">Clique ou arraste o PDF aqui</div>
+      <div style="font-size:.76rem;margin-top:6px;color:var(--muted)">
+        listapresenca_EEC0274_2026_2_B01.pdf — importa matrícula + nome dos alunos
       </div>
     </div>
-    <input type="file" id="pdf-input" accept=".pdf" multiple style="display:none" onchange="handlePDFUpload(event)">
-
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button class="btn btn-primary" onclick="document.getElementById('pdf-input').click()">📂 Selecionar PDF(s)</button>
-      <button class="btn btn-ghost" onclick="manualAddStudent()">+ Adicionar aluno manualmente</button>
+    <input type="file" id="pdf-input" accept=".pdf" multiple style="display:none"
+           onchange="handlePDFUpload(event)">
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="document.getElementById('pdf-input').click()">
+        📂 Selecionar PDF(s)
+      </button>
+      <button class="btn btn-ghost" onclick="openModal('modal-add-aluno')">+ Adicionar aluno manualmente</button>
     </div>
-
     <div id="import-log" style="font-size:.82rem;color:var(--muted);margin-top:8px;"></div>
-    <div id="import-preview"></div>
   </div>
-
   <div class="card">
-    <div class="card-title">Gerenciar Turmas</div>
-    <div id="turmas-mgr"></div>
+    <div class="card-title">Alunos cadastrados nesta turma</div>
+    <div id="alunos-mgr"></div>
   </div>
 </section>
 
-<!-- ══════════════════════════════════
-     ABA: RELATÓRIO
-══════════════════════════════════ -->
+<!-- ══ RELATÓRIO ══ -->
 <section class="section" id="tab-relatorio">
-  <div class="stats-row" id="stats-relatorio"></div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+  <div class="stats-row" id="stats-rel"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
     <div class="card">
-      <div class="card-title">Distribuição MF — B01</div>
-      <canvas id="chart-b01" height="200"></canvas>
+      <div class="card-title">Distribuição MF</div>
+      <canvas id="chart-mf" height="200"></canvas>
     </div>
     <div class="card">
-      <div class="card-title">Distribuição MF — B02</div>
-      <canvas id="chart-b02" height="200"></canvas>
+      <div class="card-title">Média por avaliação</div>
+      <canvas id="chart-aval" height="200"></canvas>
     </div>
   </div>
-
   <div class="card">
     <div class="card-title">Situação dos Alunos</div>
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr>
-            <th style="text-align:left">Turma</th>
-            <th style="text-align:left">Nome</th>
-            <th>MF</th>
-            <th>Freq%</th>
-            <th>Situação</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th style="text-align:left">Turma</th>
+          <th style="text-align:left">Nome</th>
+          <th>P1</th><th>P2</th><th>P3</th>
+          <th>MT</th><th>N1</th><th>N2</th>
+          <th>MF</th><th>Situação</th>
+        </tr></thead>
         <tbody id="rel-tbody"></tbody>
       </table>
     </div>
+  </div>
+</section>
+
+<!-- ══ CONFIG ══ -->
+<section class="section" id="tab-config">
+  <div class="card">
+    <div class="card-title">Gerenciar Disciplinas</div>
+    <div id="config-disciplinas"></div>
+    <div style="margin-top:12px">
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-nova-disc')">+ Nova disciplina</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Sincronização GitHub Gist</div>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:500px">
+      <label style="font-size:.8rem;color:var(--muted)">Token do GitHub (classic, escopo gist)
+        <input type="password" id="gist-token" placeholder="ghp_..." style="width:100%;margin-top:4px"
+               oninput="localStorage.setItem('diarioprof_gist_token',this.value)">
+      </label>
+      <label style="font-size:.8rem;color:var(--muted)">Gist ID (deixe vazio para criar novo)
+        <input type="text" id="gist-id" placeholder="(será criado automaticamente)" style="width:100%;margin-top:4px"
+               oninput="localStorage.setItem('diarioprof_gist_id',this.value)">
+      </label>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="syncGist()">🔄 Sincronizar agora</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadGist()">⬇ Carregar do Gist</button>
+      </div>
+      <span id="gist-status" style="font-size:.75rem;color:var(--muted)"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="color:var(--danger)">Zona de perigo</div>
+    <button class="btn btn-danger btn-sm" onclick="limparTurma()">🗑 Limpar alunos desta turma</button>
+    <span style="margin-left:10px;font-size:.78rem;color:var(--muted)">Remove só os alunos do contexto atual (notas preservadas)</span>
   </div>
 </section>
 
@@ -466,135 +413,138 @@
 <!-- TOAST -->
 <div id="toast"></div>
 
-<!-- MODAL IMPORTAR JSON -->
-<div class="modal-backdrop" id="modal-import">
+<!-- MODAL: importar JSON -->
+<div class="modal-backdrop" id="modal-import-json">
   <div class="modal">
     <h3>📥 Importar Backup JSON</h3>
-    <p style="color:var(--muted);font-size:.82rem;margin-bottom:12px">Cole o conteúdo do JSON exportado:</p>
-    <textarea id="json-import-area" style="width:100%;height:200px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:.78rem;font-family:monospace;"></textarea>
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeModal('modal-import')">Cancelar</button>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px">Cole o conteúdo do JSON exportado:</p>
+    <textarea id="json-import-area"
+      style="width:100%;height:180px;background:var(--inp);color:var(--text);
+             border:1px solid var(--border);border-radius:6px;padding:10px;
+             font-size:.76rem;font-family:monospace"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-import-json')">Cancelar</button>
       <button class="btn btn-primary" onclick="importJSON()">Importar</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL ADD ALUNO -->
+<!-- MODAL: add aluno -->
 <div class="modal-backdrop" id="modal-add-aluno">
   <div class="modal">
-    <h3>+ Adicionar Aluno Manualmente</h3>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+    <h3>+ Adicionar Aluno</h3>
+    <div class="modal-row">
       <label>Turma
-        <select id="add-turma" style="width:100%;margin-top:4px">
-          <option value="B01">B01</option>
-          <option value="B02">B02</option>
-        </select>
+        <select class="form-sel" id="add-turma" style="width:100%;margin-top:3px"></select>
       </label>
       <label>Matrícula
-        <input type="text" id="add-mat" placeholder="202300000" style="width:100%;margin-top:4px">
+        <input type="text" id="add-mat" placeholder="202300000" style="width:100%;margin-top:3px">
       </label>
       <label>Nome
-        <input type="text" id="add-nome" placeholder="NOME COMPLETO" style="width:100%;margin-top:4px">
+        <input type="text" id="add-nome" placeholder="NOME COMPLETO" style="width:100%;margin-top:3px">
       </label>
     </div>
-    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+    <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-aluno')">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmAddStudent()">Adicionar</button>
     </div>
   </div>
 </div>
 
-<!-- CHART.JS CDN -->
+<!-- MODAL: nova disciplina -->
+<div class="modal-backdrop" id="modal-nova-disc">
+  <div class="modal">
+    <h3>+ Nova Disciplina</h3>
+    <div class="modal-row">
+      <label>Código
+        <input type="text" id="nd-codigo" placeholder="EEC0000" style="width:100%;margin-top:3px">
+      </label>
+      <label>Nome
+        <input type="text" id="nd-nome" placeholder="Nome da Disciplina" style="width:100%;margin-top:3px">
+      </label>
+      <label>Sufixo / turma (opcional)
+        <input type="text" id="nd-sufixo" placeholder="ex: Civil, Ambiental..." style="width:100%;margin-top:3px">
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-nova-disc')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmNovaDisc()">Criar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-
-<!-- PDF.JS CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
 <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 // ══════════════════════════════════════════════════════════
-//  CONFIGURAÇÃO
+//  CATÁLOGO DE DISCIPLINAS
 // ══════════════════════════════════════════════════════════
-const GIST_TOKEN_KEY = 'diarioprof_gist_token';
-const GIST_ID_KEY    = 'diarioprof_gist_id';
-const STORAGE_KEY    = 'diarioprof_data';
+const DISC_DEFAULT = [
+  { id: 'EEC0274_Civil',     codigo: 'EEC0274', nome: 'Topografia e Geodésia', sufixo: 'Civil' },
+  { id: 'EEC0273_Ambiental', codigo: 'EEC0273', nome: 'Topografia e Geodésia', sufixo: 'Ambiental' },
+  { id: 'EEC0296_SR',        codigo: 'EEC0296', nome: 'Sensoriamento Remoto',  sufixo: '' },
+];
 
 // ══════════════════════════════════════════════════════════
 //  ESTADO GLOBAL
+//  state.dados[discId][semestreKey] = {
+//    turmas: { B01:{alunos:[]}, B02:{alunos:[]}, ... },
+//    notas:  { matricula: {P1,P2,P3,T1..T4} },
+//    diario: { B01:[{id,date,conteudo,obs}] }
+//  }
 // ══════════════════════════════════════════════════════════
 let state = {
-  version: 3,
-  turmas: {
-    B01: { nome: 'B01', alunos: [], horario: '4T123456',  chTotal: 60 },
-    B02: { nome: 'B02', alunos: [], horario: '6M123 4T123', chTotal: 60 }
-  },
-  notas: {},      // { matricula: { P1,P2,P3,T1,T2,T3,T4 } }
-  aulas: {        // { B01: [ {id, date, desc, ch} ] }   ch = carga horária da aula (horas)
-    B01: [], B02: []
-  },
-  frequencia: {}, // { matricula: { aulaId: 'P'|número_faltas } }
-                  // 'P' = presente, número = horas faltadas
-  diario: {       // { B01: [ {id,date,conteudo,obs} ] }
-    B01: [], B02: []
+  version:     3,
+  disciplinas: [...DISC_DEFAULT],
+  dados:       {}
+};
+
+// Contexto ativo
+let ctx = {
+  discId:    'EEC0274_Civil',
+  ano:       2026,
+  semestre:  2,
+  turmaId:   'B01'
+};
+
+// Charts
+let chartMF, chartAval;
+
+// ── Chave do semestre ──
+function semKey() { return `${ctx.ano}_${ctx.semestre}`; }
+
+// ── Dados do contexto atual ──
+function ctxData() {
+  if (!state.dados[ctx.discId]) state.dados[ctx.discId] = {};
+  const sk = semKey();
+  if (!state.dados[ctx.discId][sk]) {
+    state.dados[ctx.discId][sk] = {
+      turmas: { B01: { alunos: [] }, B02: { alunos: [] } },
+      notas:  {},
+      diario: { B01: [], B02: [] }
+    };
   }
-};
+  return state.dados[ctx.discId][sk];
+}
 
-let activeTurmaNotas = 'B01';
-let activeTurmaFreq  = 'B01';
-let activeTurmaDiario = 'B01';
-let chartB01, chartB02;
-
-// ══════════════════════════════════════════════════════════
-//  DADOS INICIAIS (alunos dos PDFs)
-// ══════════════════════════════════════════════════════════
-const ALUNOS_INICIAIS = {
-  B01: [
-    {matricula:'202302384', nome:'ALEX PEREIRA DOS SANTOS FILHO'},
-    {matricula:'202201470', nome:'ANA PAULA SOUZA NASCIMENTO'},
-    {matricula:'202201476', nome:'BRUNO OLIVEIRA BRANDSTETTER'},
-    {matricula:'202302402', nome:'EDERSON GONZAGA DE CASTRO LEITE'},
-    {matricula:'202302403', nome:'EMANUEL VITOR DA SILVA PEREIRA'},
-    {matricula:'202201487', nome:'EMMILY MACIEL CORRÊA MELO'},
-    {matricula:'202302406', nome:'FABRICIO GAMA PORTILHO'},
-    {matricula:'202302412', nome:'GABRIEL PHILLIP RODRIGUES SILVA'},
-    {matricula:'202402859', nome:'GABRIEL RIBEIRO NUNES'},
-    {matricula:'202402862', nome:'GUILHERME SANTOS BARBOSA'},
-    {matricula:'202302415', nome:'GUSTAVO DOS SANTOS RABELO'},
-    {matricula:'202201498', nome:'GUSTAVO PIRES TEIXEIRA'},
-    {matricula:'202402875', nome:'JORDANA ARAUJO ANDRADE'},
-    {matricula:'202009365', nome:'JOYCE DHIAYA SOUSA SIQUEIRA DE JESUS'},
-    {matricula:'202402877', nome:'KAMILA CUSTODIO VELEDA'},
-    {matricula:'202201514', nome:'LAURA RIBEIRO MACHADO'},
-    {matricula:'202402881', nome:'LETICIA FERNANDES DA SILVA'},
-    {matricula:'202201517', nome:'LUCAS CAMILO BARBOSA'},
-    {matricula:'202503134', nome:'LUCAS ROCHA SOUZA PAES'},
-    {matricula:'202201522', nome:'MARIA LUIZA MILHOMEM MACEDO'},
-    {matricula:'202402899', nome:'NATALIA SANTIAGO DE QUEIROZ'},
-    {matricula:'202402909', nome:'RAFAEL GOMES DE SOUSA LIMA'},
-    {matricula:'202206085', nome:'RAFAELA VIEIRA SOBRINHO'},
-    {matricula:'202204827', nome:'TAIS VIANA CAMPOS'},
-    {matricula:'202402917', nome:'VITOR MOREIRA CUNHA'},
-  ],
-  B02: [
-    {matricula:'202108668', nome:'CALIEL KAIAN PONTES BROWN'},
-    {matricula:'202503106', nome:'FERNANDO CUNHA PRUDENTE FILHO'},
-    {matricula:'202302409', nome:'GABRIEL ALVES DE ARAUJO'},
-    {matricula:'202505626', nome:'GABRIEL SAMPAIO SOUZA'},
-    {matricula:'202402864', nome:'HABRAAO SANDOVAL TINOCO'},
-    {matricula:'202104842', nome:'KLEBER SILVA PEIXOTO'},
-    {matricula:'202503138', nome:'MARCOS HENRIQUE VASQUE DE OLIVEIRA'},
-    {matricula:'202207105', nome:'MATHEUS GOMES RODRIGUES'},
-    {matricula:'202201535', nome:'RAFAEL TEIXEIRA GUERRA'},
-    {matricula:'202505632', nome:'TEO PEREIRA NAZARETH'},
-    {matricula:'202201545', nome:'WENZEL OLIVEIRA MONTEIRO'},
-  ]
-};
+function ctxTurmas()  { return ctxData().turmas; }
+function ctxNotas()   { return ctxData().notas;  }
+function ctxDiario()  { return ctxData().diario; }
+function ctxAlunos()  { return ctxTurmas()[ctx.turmaId]?.alunos || []; }
 
 // ══════════════════════════════════════════════════════════
-//  PERSISTÊNCIA LOCAL + GIST
+//  PERSISTÊNCIA
 // ══════════════════════════════════════════════════════════
+const STORE_KEY     = 'diarioprof_v3';
+const GIST_TOK_KEY  = 'diarioprof_gist_token';
+const GIST_ID_KEY   = 'diarioprof_gist_id';
+
 function saveAll() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
     showSaveStatus('✓ Salvo');
     syncGist();
   } catch(e) { showSaveStatus('⚠ Erro ao salvar'); }
@@ -602,20 +552,17 @@ function saveAll() {
 
 function loadLocal() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const loaded = JSON.parse(raw);
-      // Merge — não sobreescreve alunos se já tem
-      state = deepMerge(state, loaded);
-    }
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) state = deepMerge(state, JSON.parse(raw));
   } catch(e) {}
 }
 
 function deepMerge(target, source) {
-  const out = Object.assign({}, target);
+  if (!source || typeof source !== 'object') return source ?? target;
+  const out = Array.isArray(target) ? [...target] : Object.assign({}, target);
   for (const k of Object.keys(source)) {
     if (source[k] && typeof source[k] === 'object' && !Array.isArray(source[k])) {
-      out[k] = deepMerge(target[k] || {}, source[k]);
+      out[k] = deepMerge(target[k] ?? {}, source[k]);
     } else {
       out[k] = source[k];
     }
@@ -629,92 +576,151 @@ function showSaveStatus(msg) {
   setTimeout(() => el.textContent = '', 3000);
 }
 
-// AUTO-SAVE a cada 30s
 setInterval(() => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e) {}
 }, 30000);
 
-// ── GIST ──
+// ── Gist ──
 async function syncGist() {
-  const token = localStorage.getItem(GIST_TOKEN_KEY);
-  let gistId  = localStorage.getItem(GIST_ID_KEY);
+  const token  = localStorage.getItem(GIST_TOK_KEY);
+  let   gistId = localStorage.getItem(GIST_ID_KEY);
   if (!token) return;
   const body = { files: { 'diario_professor.json': { content: JSON.stringify(state, null, 2) } } };
   try {
+    let r;
     if (gistId) {
-      await fetch(`https://api.github.com/gists/${gistId}`, {
-        method: 'PATCH', headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+      r = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
     } else {
-      const r = await fetch('https://api.github.com/gists', {
-        method: 'POST', headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body, public: false, description: 'DiárioProf EEC0274' })
+      r = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, public: false, description: 'DiárioProf UFG/EECA' })
       });
       const d = await r.json();
-      if (d.id) { localStorage.setItem(GIST_ID_KEY, d.id); }
+      if (d.id) { localStorage.setItem(GIST_ID_KEY, d.id); document.getElementById('gist-id').value = d.id; }
     }
+    setGistStatus('✓ Gist sincronizado ' + new Date().toLocaleTimeString('pt-BR'));
     showSaveStatus('✓ Salvo + Gist');
-  } catch(e) { showSaveStatus('✓ Local (Gist offline)'); }
+  } catch(e) { setGistStatus('⚠ Gist offline'); }
 }
 
 async function loadGist() {
-  const token = localStorage.getItem(GIST_TOKEN_KEY);
+  const token  = localStorage.getItem(GIST_TOK_KEY);
   const gistId = localStorage.getItem(GIST_ID_KEY);
-  if (!token || !gistId) return false;
+  if (!token || !gistId) { setGistStatus('⚠ Token ou Gist ID ausente'); return; }
   try {
-    const r = await fetch(`https://api.github.com/gists/${gistId}`, {
-      headers: { Authorization: `token ${token}` }
-    });
+    const r = await fetch(`https://api.github.com/gists/${gistId}`,
+                          { headers: { Authorization: `token ${token}` } });
     const d = await r.json();
     const content = d?.files?.['diario_professor.json']?.content;
     if (content) {
       state = deepMerge(state, JSON.parse(content));
-      return true;
+      saveAll(); renderAll(); toast('Dados carregados do Gist!');
+      setGistStatus('✓ Carregado do Gist');
     }
-  } catch(e) {}
-  return false;
+  } catch(e) { setGistStatus('⚠ Erro ao carregar Gist'); }
 }
 
-// ── EXPORT / IMPORT JSON ──
+function setGistStatus(msg) {
+  const el = document.getElementById('gist-status');
+  if (el) el.textContent = msg;
+}
+
+// ── Export / Import JSON ──
 function exportJSON() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url;
-  a.download = `diario_EEC0274_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `diarioprof_backup_${new Date().toISOString().slice(0,10)}.json`;
   a.click(); URL.revokeObjectURL(url);
   toast('JSON exportado!');
 }
 
 function openImportJSON() {
   document.getElementById('json-import-area').value = '';
-  openModal('modal-import');
+  openModal('modal-import-json');
 }
 
 function importJSON() {
   try {
     const data = JSON.parse(document.getElementById('json-import-area').value);
     state = deepMerge(state, data);
-    saveAll(); closeModal('modal-import');
-    renderAll(); toast('Dados importados com sucesso!');
+    saveAll(); renderAll();
+    closeModal('modal-import-json');
+    toast('Dados importados!');
   } catch(e) { alert('JSON inválido: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONTEXTO (seletor de disciplina / ano / semestre)
+// ══════════════════════════════════════════════════════════
+function buildAnoSelect() {
+  const sel = document.getElementById('sel-ano');
+  sel.innerHTML = '';
+  for (let y = 2050; y >= 2024; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    if (y === ctx.ano) o.selected = true;
+    sel.appendChild(o);
+  }
+  // Atualizar labels do semestre com o ano corrente
+  document.querySelectorAll('#sel-semestre option').forEach(o => {
+    o.textContent = `${ctx.ano}.${o.value}`;
+  });
+}
+
+function buildDiscSelect() {
+  const sel = document.getElementById('sel-disciplina');
+  sel.innerHTML = state.disciplinas.map(d =>
+    `<option value="${d.id}" ${d.id === ctx.discId ? 'selected' : ''}>
+      ${d.codigo} · ${d.nome}${d.sufixo ? ' — ' + d.sufixo : ''}
+    </option>`
+  ).join('');
+}
+
+function onDisciplinaChange() {
+  ctx.discId = document.getElementById('sel-disciplina').value;
+  // Reset turma para B01 se não existir no novo contexto
+  const turmas = Object.keys(ctxTurmas());
+  if (!turmas.includes(ctx.turmaId)) ctx.turmaId = turmas[0] || 'B01';
+  updateBadge(); renderAll();
+}
+
+function onContextChange() {
+  ctx.ano      = parseInt(document.getElementById('sel-ano').value);
+  ctx.semestre = parseInt(document.getElementById('sel-semestre').value);
+  // Atualizar labels do semestre com o ano atual
+  document.querySelectorAll('#sel-semestre option').forEach(o => {
+    o.textContent = `${ctx.ano}.${o.value}`;
+  });
+  updateBadge(); renderAll();
+}
+
+function updateBadge() {
+  const disc = state.disciplinas.find(d => d.id === ctx.discId);
+  const label = disc ? `${disc.codigo} · ${ctx.ano}.${ctx.semestre}` : '—';
+  document.getElementById('ctx-badge').textContent = label;
 }
 
 // ══════════════════════════════════════════════════════════
 //  FÓRMULAS
 // ══════════════════════════════════════════════════════════
 function avg(...vals) {
-  const nums = vals.filter(v => v !== null && v !== undefined && v !== '' && !isNaN(parseFloat(v)));
+  const nums = vals.flat().filter(v => v !== null && v !== undefined && v !== '' && !isNaN(parseFloat(v)));
   if (!nums.length) return null;
   return nums.reduce((a,b) => a + parseFloat(b), 0) / nums.length;
 }
 
 function calcNotas(mat) {
-  const n = state.notas[mat] || {};
+  const n  = ctxNotas()[mat] || {};
   const MT = avg(n.T1, n.T2, n.T3, n.T4);
   const N1 = avg(n.P1, n.P2);
-  const N2 = avg(MT, n.P3);
-  const MF = avg(N1, N2);
+  const N2 = avg(MT,   n.P3);
+  const MF = avg(N1,   N2);
   return { MT, N1, N2, MF };
 }
 
@@ -724,19 +730,50 @@ function fmt(v) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  TURMA SELECTORS
+// ══════════════════════════════════════════════════════════
+function buildTurmaSelector(containerId, onSelect) {
+  const turmas = Object.keys(ctxTurmas());
+  // Garantir B01 existe
+  if (!ctxTurmas().B01) ctxTurmas().B01 = { alunos: [] };
+  const cont = document.getElementById(containerId);
+  cont.innerHTML = turmas.map(t =>
+    `<button class="turma-btn${t === ctx.turmaId ? ' active' : ''}"
+      onclick="selectTurma('${t}','${containerId}',${JSON.stringify(onSelect).replace(/"/g,"'")})">${t}
+      <span style="font-size:.7rem;color:var(--muted)"> (${ctxTurmas()[t].alunos.length})</span>
+    </button>`
+  ).join('') +
+  `<button class="btn btn-ghost btn-sm" onclick="addTurma()">+ Turma</button>`;
+}
+
+function selectTurma(t) {
+  ctx.turmaId = t;
+  renderAll();
+}
+
+function addTurma() {
+  const nome = prompt('Nome da nova turma (ex: B03):')?.trim().toUpperCase();
+  if (!nome) return;
+  if (ctxTurmas()[nome]) { toast('Turma já existe!'); return; }
+  ctxTurmas()[nome] = { alunos: [] };
+  if (!ctxDiario()[nome]) ctxDiario()[nome] = [];
+  ctx.turmaId = nome;
+  saveAll(); renderAll(); toast(`Turma ${nome} criada!`);
+}
+
+// ══════════════════════════════════════════════════════════
 //  RENDER NOTAS
 // ══════════════════════════════════════════════════════════
 function renderNotas() {
-  const turma = state.turmas[activeTurmaNotas];
-  const alunos = turma.alunos;
-  const body = document.getElementById('notas-body');
+  buildTurmaSelector('turma-sel-notas');
+  const alunos = ctxAlunos();
+  const body   = document.getElementById('notas-body');
   body.innerHTML = '';
 
   alunos.forEach(a => {
-    const n = state.notas[a.matricula] || {};
+    const n = ctxNotas()[a.matricula] || {};
     const { MT, N1, N2, MF } = calcNotas(a.matricula);
-    const mfClass = MF === null ? '' : MF >= 5 ? 'ok' : 'fail';
-
+    const mfCls = MF === null ? '' : MF >= 5 ? 'ok' : 'fail';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${a.matricula}</td>
@@ -745,7 +782,7 @@ function renderNotas() {
         <td style="text-align:center">
           <input class="nota${n[k]!==undefined&&n[k]!==''?' filled':''}"
             type="number" min="0" max="10" step="0.1"
-            value="${n[k]!==undefined?n[k]:''}"
+            value="${n[k]!==undefined&&n[k]!==''?n[k]:''}"
             data-mat="${a.matricula}" data-campo="${k}"
             onchange="onNotaChange(this)"
             oninput="this.className='nota'+(this.value!==''?' filled':'')">
@@ -753,7 +790,7 @@ function renderNotas() {
       <td class="calc">${fmt(MT)}</td>
       <td class="calc">${fmt(N1)}</td>
       <td class="calc">${fmt(N2)}</td>
-      <td class="calc ${mfClass}">${fmt(MF)}</td>
+      <td class="calc ${mfCls}" style="font-size:.88rem">${fmt(MF)}</td>
     `;
     body.appendChild(tr);
   });
@@ -763,688 +800,411 @@ function renderNotas() {
 }
 
 function onNotaChange(input) {
-  const mat = input.dataset.mat;
+  const mat   = input.dataset.mat;
   const campo = input.dataset.campo;
-  const val = input.value.trim();
-  if (!state.notas[mat]) state.notas[mat] = {};
-  state.notas[mat][campo] = val === '' ? '' : parseFloat(val);
-  // Recalc linha
+  const val   = input.value.trim();
+  if (!ctxNotas()[mat]) ctxNotas()[mat] = {};
+  ctxNotas()[mat][campo] = val === '' ? '' : parseFloat(val);
   const { MT, N1, N2, MF } = calcNotas(mat);
   const cells = input.closest('tr').querySelectorAll('.calc');
   cells[0].textContent = fmt(MT);
   cells[1].textContent = fmt(N1);
   cells[2].textContent = fmt(N2);
   cells[3].textContent = fmt(MF);
-  cells[3].className = 'calc ' + (MF===null?'':(MF>=5?'ok':'fail'));
+  cells[3].className   = 'calc ' + (MF===null?'':(MF>=5?'ok':'fail'));
   saveAll();
-}
-
-function calcAll() {
-  renderNotas(); toast('Recalculado!');
 }
 
 function renderStatsNotas(alunos) {
   const mfs = alunos.map(a => calcNotas(a.matricula).MF).filter(v => v !== null);
-  const aprovados = mfs.filter(v => v >= 5).length;
-  const media = mfs.length ? (mfs.reduce((a,b)=>a+b,0)/mfs.length) : null;
-
+  const aprov = mfs.filter(v => v >= 5).length;
+  const media = mfs.length ? mfs.reduce((a,b)=>a+b,0)/mfs.length : null;
   document.getElementById('stats-notas').innerHTML = `
-    <div class="stat-box">
-      <div class="val">${alunos.length}</div>
-      <div class="lbl">Alunos</div>
-    </div>
-    <div class="stat-box">
-      <div class="val" style="color:var(--accent2)">${aprovados}</div>
-      <div class="lbl">Aprovados</div>
-    </div>
-    <div class="stat-box">
-      <div class="val" style="color:var(--danger)">${alunos.length - aprovados}</div>
-      <div class="lbl">Em risco</div>
-    </div>
-    <div class="stat-box">
-      <div class="val">${media !== null ? media.toFixed(2) : '—'}</div>
-      <div class="lbl">Média MF</div>
-    </div>
-    <div class="stat-box">
-      <div class="val">${mfs.length ? Math.max(...mfs).toFixed(2) : '—'}</div>
-      <div class="lbl">Maior MF</div>
-    </div>
-    <div class="stat-box">
-      <div class="val">${mfs.length ? Math.min(...mfs).toFixed(2) : '—'}</div>
-      <div class="lbl">Menor MF</div>
-    </div>
+    <div class="stat-box"><div class="val">${alunos.length}</div><div class="lbl">Alunos</div></div>
+    <div class="stat-box"><div class="val" style="color:var(--accent2)">${aprov}</div><div class="lbl">Aprovados</div></div>
+    <div class="stat-box"><div class="val" style="color:var(--danger)">${alunos.length-aprov}</div><div class="lbl">Em risco</div></div>
+    <div class="stat-box"><div class="val">${media!==null?media.toFixed(2):'—'}</div><div class="lbl">Média MF</div></div>
+    <div class="stat-box"><div class="val">${mfs.length?Math.max(...mfs).toFixed(2):'—'}</div><div class="lbl">Maior MF</div></div>
+    <div class="stat-box"><div class="val">${mfs.length?Math.min(...mfs).toFixed(2):'—'}</div><div class="lbl">Menor MF</div></div>
   `;
 }
 
 function renderFooterNotas(alunos) {
   const campos = ['P1','P2','P3','T1','T2','T3','T4'];
-  const footer = document.getElementById('notas-footer');
   const avgs = campos.map(c => {
-    const vals = alunos.map(a => state.notas[a.matricula]?.[c]).filter(v => v !== undefined && v !== '');
+    const vals = alunos.map(a => ctxNotas()[a.matricula]?.[c]).filter(v => v!==undefined&&v!=='');
     return vals.length ? (vals.reduce((a,b)=>a+parseFloat(b),0)/vals.length).toFixed(2) : '—';
   });
-  footer.innerHTML = `
+  document.getElementById('notas-footer').innerHTML = `
     <tr style="border-top:2px solid var(--accent);background:var(--surface)">
       <td colspan="2" style="font-weight:700;color:var(--muted);padding:8px 10px">Média turma</td>
       ${avgs.map(v=>`<td class="calc">${v}</td>`).join('')}
       <td colspan="4"></td>
-    </tr>
-  `;
+    </tr>`;
 }
 
-function selectTurmaNotas(t) {
-  activeTurmaNotas = t;
-  document.querySelectorAll('#turma-sel-notas .turma-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent.includes(t));
-  });
-  renderNotas();
-}
-
-// ══════════════════════════════════════════════════════════
-//  RENDER FREQUÊNCIA
-// ══════════════════════════════════════════════════════════
-// ── helpers de carga horária ──
-function chTotalAulas(turmaId) {
-  return (state.aulas[turmaId] || []).reduce((s, a) => s + (a.ch || 2), 0);
-}
-function chFaltasAluno(mat, turmaId) {
-  const aulas = state.aulas[turmaId] || [];
-  return aulas.reduce((s, au) => {
-    const reg = state.frequencia[mat]?.[au.id];
-    if (reg === undefined || reg === 'P' || reg === true) return s;
-    if (reg === false) return s + (au.ch || 2);  // legado checkbox
-    return s + Number(reg);
-  }, 0);
-}
-function freqPct(mat, turmaId) {
-  const total = chTotalAulas(turmaId);
-  if (!total) return 100;
-  const faltas = chFaltasAluno(mat, turmaId);
-  return Math.round(((total - faltas) / total) * 100);
-}
-
-function renderFreq() {
-  const turmaId = activeTurmaFreq;
-  const turma   = state.turmas[turmaId];
-  const aulas   = state.aulas[turmaId] || [];
-  const alunos  = turma.alunos;
-  const head    = document.getElementById('freq-head');
-  const body    = document.getElementById('freq-body');
-
-  const chTotal = chTotalAulas(turmaId);
-
-  head.innerHTML = `
-    <tr>
-      <th style="text-align:left;min-width:180px">Nome</th>
-      <th style="min-width:80px">Faltas(h)</th>
-      <th style="min-width:100px">Freq%</th>
-      ${aulas.map(a => `
-        <th class="aula-date" title="${a.desc}">
-          ${fmtDate(a.date)}<br>
-          <span style="font-weight:400;font-size:.65rem">${(a.desc||'').slice(0,8)}</span><br>
-          <span style="font-size:.65rem;color:var(--accent)">${a.ch||2}h</span>
-          <button onclick="removeAula('${a.id}')" style="display:block;width:100%;border:none;background:none;color:var(--danger);cursor:pointer;font-size:.65rem;padding:0;margin-top:1px" title="Remover aula">✕</button>
-        </th>`).join('')}
-    </tr>
-  `;
-
-  body.innerHTML = '';
+function exportCSV() {
+  const alunos = ctxAlunos();
+  const rows = [['Matrícula','Nome','P1','P2','P3','T1','T2','T3','T4','MT','N1','N2','MF']];
   alunos.forEach(a => {
-    const faltas = chFaltasAluno(a.matricula, turmaId);
-    const pct    = freqPct(a.matricula, turmaId);
-    const barClass = pct >= 75 ? '' : pct >= 60 ? 'warn' : 'danger';
-    const limiteFaltas = Math.floor(chTotal * 0.25);
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${a.nome}</td>
-      <td style="text-align:center">
-        <span style="color:var(--${faltas > limiteFaltas ? 'danger' : faltas > 0 ? 'warn' : 'accent2'});font-weight:700">
-          ${faltas}h
-        </span>
-        ${faltas > limiteFaltas ? '<span title="Limite de 25% excedido" style="margin-left:3px">⚠️</span>' : ''}
-      </td>
-      <td>
-        <div class="freq-bar-wrap">
-          <div class="freq-bar"><div class="freq-bar-fill ${barClass}" style="width:${pct}%"></div></div>
-          <span style="font-size:.78rem;color:var(--${barClass||'accent2'})">${pct}%</span>
-        </div>
-      </td>
-      ${aulas.map(au => {
-        const reg = state.frequencia[a.matricula]?.[au.id];
-        // reg: undefined=não registrado, 'P'=presente, número>0=falta, true/false=legado
-        let cellVal = '';
-        let cellStyle = 'color:var(--muted)';
-        let cellTitle = 'Não registrado';
-        if (reg === 'P' || reg === true) {
-          cellVal = '✓'; cellStyle = 'color:var(--accent2);font-weight:700'; cellTitle = 'Presente';
-        } else if (reg === false) {
-          cellVal = `${au.ch||2}h`; cellStyle = 'color:var(--danger);font-weight:700'; cellTitle = 'Falta (legado)';
-        } else if (typeof reg === 'number' && reg > 0) {
-          cellVal = `${reg}h`; cellStyle = 'color:var(--danger);font-weight:700'; cellTitle = `Faltou ${reg}h`;
-        } else if (reg === 0) {
-          cellVal = '✓'; cellStyle = 'color:var(--accent2);font-weight:700'; cellTitle = 'Presente (0 faltas)';
-        }
-        return `<td style="text-align:center">
-          <span title="${cellTitle}" style="${cellStyle};cursor:pointer;font-size:.85rem"
-            onclick="cycleFreq('${a.matricula}','${au.id}',${au.ch||2})">${cellVal||'·'}</span>
-        </td>`;
-      }).join('')}
-    `;
-    body.appendChild(tr);
+    const n = ctxNotas()[a.matricula] || {};
+    const { MT, N1, N2, MF } = calcNotas(a.matricula);
+    rows.push([a.matricula,a.nome,
+      n.P1??'',n.P2??'',n.P3??'',n.T1??'',n.T2??'',n.T3??'',n.T4??'',
+      MT!==null?MT.toFixed(2):'',N1!==null?N1.toFixed(2):'',
+      N2!==null?N2.toFixed(2):'',MF!==null?MF.toFixed(2):''
+    ]);
   });
-}
-
-// Ciclo manual: não-reg → presente → falta total → não-reg
-function cycleFreq(mat, aulaId, ch) {
-  if (!state.frequencia[mat]) state.frequencia[mat] = {};
-  const cur = state.frequencia[mat][aulaId];
-  if (cur === undefined || cur === null) {
-    state.frequencia[mat][aulaId] = 'P';
-  } else if (cur === 'P' || cur === true || cur === 0) {
-    state.frequencia[mat][aulaId] = ch; // falta total
-  } else {
-    delete state.frequencia[mat][aulaId]; // volta a não-registrado
-  }
-  saveAll();
-  renderFreq();
-}
-
-function onFreqChange(cb) {  // mantido para compatibilidade legado
-  const mat = cb.dataset.mat;
-  const aulaId = cb.dataset.aula;
-  if (!state.frequencia[mat]) state.frequencia[mat] = {};
-  state.frequencia[mat][aulaId] = cb.checked ? 'P' : 2;
-  saveAll();
-  renderFreq();
-}
-
-function removeAula(id) {
-  if (!confirm('Remover esta aula do registro?')) return;
-  state.aulas[activeTurmaFreq] = state.aulas[activeTurmaFreq].filter(a => a.id !== id);
-  saveAll(); renderFreq();
-}
-
-function addAula() {
-  const date = document.getElementById('nova-aula-date').value;
-  const desc = document.getElementById('nova-aula-desc').value.trim() || 'Aula';
-  const ch   = parseInt(document.getElementById('nova-aula-ch')?.value || '2') || 2;
-  if (!date) { toast('Selecione a data!'); return; }
-  const id = 'aula_' + Date.now();
-  state.aulas[activeTurmaFreq].push({ id, date, desc, ch });
-  saveAll(); renderFreq();
-  document.getElementById('nova-aula-desc').value = '';
-  toast('Aula adicionada!');
-}
-
-function fmtDate(d) {
-  if (!d) return '?';
-  const [y,m,di] = d.split('-');
-  return `${di}/${m}`;
-}
-
-function selectTurmaFreq(t) {
-  activeTurmaFreq = t;
-  document.querySelectorAll('#turma-sel-freq .turma-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent.includes(t));
-  });
-  renderFreq();
+  const csv = rows.map(r=>r.join(';')).join('\n');
+  const blob = new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url;
+  a.download=`notas_${ctx.discId}_${semKey()}_${ctx.turmaId}.csv`;
+  a.click(); toast('CSV exportado!');
 }
 
 // ══════════════════════════════════════════════════════════
-//  DIÁRIO DE AULAS
+//  DIÁRIO
 // ══════════════════════════════════════════════════════════
 function renderDiario() {
-  const entries = state.diario[activeTurmaDiario] || [];
-  const list = document.getElementById('diario-list');
+  buildTurmaSelector('turma-sel-diario');
+  const entries = ctxDiario()[ctx.turmaId] || [];
+  const list    = document.getElementById('diario-list');
   list.innerHTML = '';
+
   if (!entries.length) {
-    list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">Nenhuma entrada ainda. Clique em "+ Nova entrada".</p>';
+    list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">Sem entradas. Clique em "+ Nova entrada".</p>';
     return;
   }
-  [...entries].reverse().forEach(e => {
+  [...entries].sort((a,b)=>b.date.localeCompare(a.date)).forEach(e => {
     const div = document.createElement('div');
     div.className = 'card';
     div.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <span style="font-weight:700;color:var(--accent)">${fmtDateLong(e.date)}</span>
-        <span class="badge badge-${activeTurmaDiario.toLowerCase()}">${activeTurmaDiario}</span>
+        <span class="badge badge-b01">${ctx.turmaId}</span>
         <span style="flex:1"></span>
-        <button class="btn btn-ghost" style="padding:4px 8px;font-size:.75rem" onclick="deleteDiario('${e.id}')">🗑</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteDiario('${e.id}')">🗑</button>
       </div>
       <div style="margin-bottom:8px">
-        <label style="font-size:.75rem;color:var(--muted)">Conteúdo ministrado</label>
+        <label style="font-size:.74rem;color:var(--muted)">Conteúdo ministrado</label>
         <textarea class="annotation" data-id="${e.id}" data-field="conteudo"
-          onchange="onDiarioChange(this)">${e.conteudo||''}</textarea>
+          oninput="onDiarioChange(this)">${e.conteudo||''}</textarea>
       </div>
       <div>
-        <label style="font-size:.75rem;color:var(--muted)">Observações / pendências</label>
+        <label style="font-size:.74rem;color:var(--muted)">Observações / pendências</label>
         <textarea class="annotation" data-id="${e.id}" data-field="obs"
-          onchange="onDiarioChange(this)">${e.obs||''}</textarea>
-      </div>
-    `;
+          oninput="onDiarioChange(this)">${e.obs||''}</textarea>
+      </div>`;
     list.appendChild(div);
   });
 }
 
 function addDiarioEntry() {
-  const id = 'diario_' + Date.now();
-  const today = new Date().toISOString().slice(0,10);
-  if (!state.diario[activeTurmaDiario]) state.diario[activeTurmaDiario] = [];
-  state.diario[activeTurmaDiario].push({ id, date: today, conteudo: '', obs: '' });
+  const id  = 'D_' + Date.now();
+  const day = new Date().toISOString().slice(0,10);
+  if (!ctxDiario()[ctx.turmaId]) ctxDiario()[ctx.turmaId] = [];
+  ctxDiario()[ctx.turmaId].unshift({ id, date: day, conteudo: '', obs: '' });
   saveAll(); renderDiario();
 }
 
 function onDiarioChange(ta) {
-  const id = ta.dataset.id;
+  const id    = ta.dataset.id;
   const field = ta.dataset.field;
-  const entry = state.diario[activeTurmaDiario].find(e => e.id === id);
+  const entry = ctxDiario()[ctx.turmaId]?.find(e => e.id === id);
   if (entry) { entry[field] = ta.value; saveAll(); }
 }
 
 function deleteDiario(id) {
   if (!confirm('Remover esta entrada?')) return;
-  state.diario[activeTurmaDiario] = state.diario[activeTurmaDiario].filter(e => e.id !== id);
+  ctxDiario()[ctx.turmaId] = ctxDiario()[ctx.turmaId].filter(e => e.id !== id);
   saveAll(); renderDiario();
-}
-
-function selectTurmaDiario(t) {
-  activeTurmaDiario = t;
-  document.querySelectorAll('#turma-sel-diario .turma-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent.includes(t));
-  });
-  renderDiario();
 }
 
 function fmtDateLong(d) {
   if (!d) return '?';
-  try {
-    return new Date(d+'T12:00:00').toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
-  } catch(e) { return d; }
+  try { return new Date(d+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}); }
+  catch(e) { return d; }
 }
 
 // ══════════════════════════════════════════════════════════
 //  IMPORTAR PDF
 // ══════════════════════════════════════════════════════════
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-// Detectar tipo de PDF: "lista de frequência" (alunos) ou "mapa de frequência" (datas + faltas)
-function detectPDFType(text) {
-  if (/mapa.*freq|Lista de Frequ.*ncia.*Agosto|Agosto.*Setembro|12\s+14\s+19/i.test(text)) return 'mapa';
-  if (/lista de frequ.*ncia|LISTA DE FREQU/i.test(text)) return 'lista';
-  return 'unknown';
-}
-
 async function handlePDFUpload(event) {
   const files = Array.from(event.target.files);
-  const log = document.getElementById('import-log');
-  log.innerHTML = '⏳ Processando PDF(s)...';
+  const log   = document.getElementById('import-log');
+  log.innerHTML = '⏳ Processando...';
   let msgs = [];
 
   for (const file of files) {
     const text = await extractPDFText(file);
-    const tipo = detectPDFType(text);
-    log.innerHTML = `⏳ ${file.name} — tipo detectado: <b>${tipo}</b>...`;
-
-    if (tipo === 'mapa') {
-      const result = parseMapaFrequencia(text);
-      if (!result) { msgs.push(`⚠ ${file.name}: não foi possível parsear o mapa de frequência.`); continue; }
-      const { datas, alunosFreq } = result;
-      msgs.push(...importarMapaFrequencia(datas, alunosFreq, file.name));
-    } else if (tipo === 'lista') {
-      const { turma, alunos } = parseListaAlunos(text, file.name);
-      if (!turma || !alunos.length) { msgs.push(`⚠ ${file.name}: turma/alunos não detectados.`); continue; }
-      const existentes = (state.turmas[turma]?.alunos || []).map(a => a.matricula);
-      let novos = 0;
-      alunos.forEach(a => { if (!existentes.includes(a.matricula)) { state.turmas[turma].alunos.push(a); novos++; } });
-      msgs.push(`✓ ${file.name} → Lista ${turma}: ${alunos.length} alunos (${novos} novos)`);
-    } else {
-      msgs.push(`⚠ ${file.name}: formato não reconhecido.`);
+    const { turmaId, alunos } = parseListaSIGAA(text, file.name);
+    if (!alunos.length) {
+      msgs.push(`⚠ ${file.name}: nenhum aluno extraído.`);
+      continue;
     }
+    // Turma alvo: detectada no PDF ou a turma atual
+    const tid = turmaId || ctx.turmaId;
+    if (!ctxTurmas()[tid]) ctxTurmas()[tid] = { alunos: [] };
+    const existentes = ctxTurmas()[tid].alunos.map(a => a.matricula);
+    let novos = 0;
+    alunos.forEach(a => {
+      if (!existentes.includes(a.matricula)) { ctxTurmas()[tid].alunos.push(a); novos++; }
+    });
+    msgs.push(`✓ ${file.name} → Turma ${tid}: ${alunos.length} alunos (${novos} novos)`);
   }
 
   saveAll(); renderAll();
-  log.innerHTML = msgs.map(m => `<div>${m}</div>`).join('') +
-    `<div style="margin-top:8px;color:var(--accent2);font-weight:700">✓ Importação concluída. Veja a aba Frequência.</div>`;
+  log.innerHTML = msgs.map(m=>`<div>${m}</div>`).join('') +
+    `<div style="margin-top:8px;color:var(--accent2);font-weight:700">Concluído.</div>`;
   event.target.value = '';
   toast('Importação concluída!');
 }
 
 async function extractPDFText(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  let lines = [];
+  const ab  = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  let text  = '';
   for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
+    const page    = await pdf.getPage(p);
     const content = await page.getTextContent();
-    // Agrupar por linha via posição Y (arredondada a 2px)
     const byY = {};
     content.items.forEach(it => {
-      const y = Math.round(it.transform[5] / 2) * 2;
+      const y = Math.round(it.transform[5] / 3) * 3;
       if (!byY[y]) byY[y] = [];
       byY[y].push({ x: it.transform[4], str: it.str });
     });
-    // Ordenar Y desc (PDF origin bottom-left), X asc dentro da linha
-    Object.keys(byY).sort((a,b) => b - a).forEach(y => {
-      const row = byY[y].sort((a,b) => a.x - b.x).map(it => it.str).join(' ').trim();
-      if (row) lines.push(row);
+    Object.keys(byY).sort((a,b)=>b-a).forEach(y => {
+      const row = byY[y].sort((a,b)=>a.x-b.x).map(it=>it.str).join(' ').trim();
+      if (row) text += row + '\n';
     });
   }
-  return lines.join('\n');
+  return text;
 }
 
-// ── PARSER: MAPA DE FREQUÊNCIA (mapa_EEC0274_*.pdf) ──
-// Formato SIGAA: cabeçalho com meses, linha de dias, linhas de alunos com * ou número
-const MESES_MAP = {
-  'Agosto':8,'Setembro':9,'Outubro':10,'Novembro':11,'Dezembro':12,
-  'Janeiro':1,'Fevereiro':2,'Março':3,'Abril':4,'Maio':5,'Junho':6,'Julho':7
-};
+function parseListaSIGAA(text, filename) {
+  // Detectar turma
+  let turmaId = null;
+  const mB = filename.match(/_(B\d+)\./i) || text.match(/Turma[:\s]+(B\d+)/i);
+  if (mB) turmaId = mB[1].toUpperCase();
 
-function parseMapaFrequencia(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
-  // 1. Linha de meses
-  let mesesEncontrados = [];
-  let mesLineIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const palavras = lines[i].split(/\s+/);
-    const meses = palavras.filter(p => MESES_MAP[p]);
-    if (meses.length >= 2) { mesesEncontrados = meses; mesLineIdx = i; break; }
-  }
-  if (!mesesEncontrados.length) return null;
-
-  // 2. Linha de dias (próxima linha com 10+ números)
-  let diasLine = -1;
-  let todosDias = [];
-  for (let i = mesLineIdx + 1; i < Math.min(mesLineIdx + 5, lines.length); i++) {
-    const nums = lines[i].match(/\b\d{1,2}\b/g);
-    if (nums && nums.length >= 6) {
-      todosDias = nums.map(Number);
-      diasLine = i;
-      break;
-    }
-  }
-  if (!todosDias.length) return null;
-
-  // 3. Distribuir dias por mês (quebra quando dia ≤ anterior)
-  const datas = [];
-  const ano = 2026; // ano do semestre — pode ser ajustado
-  let mesIdx = 0, prev = 0;
-  todosDias.forEach(dia => {
-    if (dia <= prev && mesIdx < mesesEncontrados.length - 1) mesIdx++;
-    const mes = MESES_MAP[mesesEncontrados[mesIdx]];
-    datas.push(`${ano}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`);
-    prev = dia;
-  });
-
-  // 4. Linhas de alunos (a partir de diasLine+1)
-  const alunosFreq = {};
-  for (let i = diasLine + 1; i < lines.length; i++) {
-    const line = lines[i];
-    const matMatch = line.match(/^(\d{9})\s+/);
-    if (!matMatch) continue;
-    const mat = matMatch[1];
-    const resto = line.slice(matMatch[0].length);
-
-    // Separar nome (letras maiúsculas/acentuadas/espaços) dos tokens (* ou número)
-    const nomeMatch = resto.match(/^([A-ZÁÉÍÓÚÃÕÂÊÔÀÜÇ][A-ZÁÉÍÓÚÃÕÂÊÔÀÜÇ\s]+?)(?=\s+[\*\d]|$)/);
-    if (!nomeMatch) continue;
-    const nome = nomeMatch[1].trim();
-    const tokensStr = resto.slice(nomeMatch[0].length);
-    const tokens = tokensStr.match(/\*|\d+/g) || [];
-
-    // Mapear tokens → datas
-    const freqAluno = {};
-    tokens.forEach((tok, i) => {
-      if (i >= datas.length) return;
-      if (tok === '*') freqAluno[datas[i]] = 'P';
-      else freqAluno[datas[i]] = parseInt(tok); // horas de falta
-    });
-    alunosFreq[mat] = { nome, freq: freqAluno };
-  }
-
-  return { datas, alunosFreq };
-}
-
-// ── Importar mapa → state ──
-function importarMapaFrequencia(datas, alunosFreq, filename) {
-  const msgs = [];
-  // Este PDF contém alunos de AMBAS as turmas (B - é a turma global no mapa)
-  // Mapear matrícula → turma pelo state atual
-  const matToTurma = {};
-  ['B01','B02'].forEach(tid => {
-    state.turmas[tid].alunos.forEach(a => { matToTurma[a.matricula] = tid; });
-  });
-
-  // Para cada turma: criar/atualizar aulas com as datas do mapa
-  const turmasAtingidas = new Set(Object.values(matToTurma));
-  const aulasAdicionadas = { B01: 0, B02: 0 };
-
-  datas.forEach(date => {
-    ['B01','B02'].forEach(tid => {
-      if (!turmasAtingidas.has(tid)) return;
-      const ja = (state.aulas[tid] || []).find(a => a.date === date);
-      if (!ja) {
-        const id = 'aula_' + date.replace(/-/g,'') + '_' + tid;
-        if (!state.aulas[tid]) state.aulas[tid] = [];
-        state.aulas[tid].push({ id, date, desc: 'Importado SIGAA', ch: 2 });
-        aulasAdicionadas[tid]++;
-      }
-    });
-  });
-
-  // Para cada aluno: gravar frequência
-  let alunosOk = 0, alunosNovos = 0;
-  Object.entries(alunosFreq).forEach(([mat, dado]) => {
-    const turmaId = matToTurma[mat];
-
-    // Se aluno não cadastrado, adicionar nas duas turmas conforme matrícula
-    // (mapa cobre B01+B02 juntas)
-    if (!turmaId) {
-      // Tentar inferir turma pela presença nos alunos iniciais globais
-      // Como não temos, adicionar em B01 por padrão com aviso
-      msgs.push(`⚠ Matrícula ${mat} (${dado.nome}) não encontrada nas turmas — adicione manualmente.`);
-      return;
-    }
-
-    if (!state.frequencia[mat]) state.frequencia[mat] = {};
-
-    // Gravar cada registro de frequência, mapeando data → id da aula
-    Object.entries(dado.freq).forEach(([date, val]) => {
-      const aula = (state.aulas[turmaId] || []).find(a => a.date === date);
-      if (aula) state.frequencia[mat][aula.id] = val;
-    });
-    alunosOk++;
-  });
-
-  msgs.push(`✓ ${filename}: ${datas.length} datas importadas | ` +
-    `B01: +${aulasAdicionadas.B01} aulas | B02: +${aulasAdicionadas.B02} aulas | ` +
-    `${alunosOk} alunos com frequência atualizada`);
-  return msgs;
-}
-
-// ── PARSER: LISTA DE ALUNOS (listapresenca_*.pdf) ──
-function parseListaAlunos(text, filename) {
-  let turma = null;
-  if (/B01/i.test(filename) || /Turma.*B01/i.test(text)) turma = 'B01';
-  else if (/B02/i.test(filename) || /Turma.*B02/i.test(text)) turma = 'B02';
-  if (!turma) return { turma: null, alunos: [] };
-
+  // Extrair pares matrícula + nome
   const alunos = [];
-  const regex = /(\d{9})\s+([A-ZÁÉÍÓÚÃÕÂÊÔÀÜÇ][A-ZÁÉÍÓÚÃÕÂÊÔÀÜÇ\s]+?)(?=\d{9}|$)/g;
+  const re = /(\d{9})\s+([A-ZÁÉÍÓÚÃÕÂÊÔÀÜÇ][A-ZÁÉÍÓÚÃÕÂÊÔÀÜÇ\s]{3,}?)(?=\d{9}|Página|\n\n|$)/g;
   let m;
-  while ((m = regex.exec(text)) !== null) {
+  while ((m = re.exec(text)) !== null) {
     const nome = m[2].replace(/\s+/g,' ').trim();
     if (nome.length > 3) alunos.push({ matricula: m[1], nome });
   }
-  return { turma, alunos };
+  return { turmaId, alunos };
 }
 
-function manualAddStudent() {
-  openModal('modal-add-aluno');
+// ══════════════════════════════════════════════════════════
+//  ALUNOS MGR (aba Importar)
+// ══════════════════════════════════════════════════════════
+function renderAlunosMgr() {
+  const div = document.getElementById('alunos-mgr');
+  const turmas = ctxTurmas();
+  div.innerHTML = Object.entries(turmas).map(([tid, t]) => `
+    <div style="margin-bottom:14px">
+      <b style="color:var(--accent)">${tid}</b>
+      <span style="color:var(--muted);font-size:.78rem;margin-left:8px">${t.alunos.length} alunos</span>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+        ${t.alunos.map(a => `
+          <span style="background:var(--inp);border:1px solid var(--border);border-radius:4px;
+                       padding:2px 8px;font-size:.75rem;display:inline-flex;align-items:center;gap:6px">
+            ${a.matricula} · ${a.nome}
+            <button onclick="removeAluno('${tid}','${a.matricula}')"
+              style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:.8rem;padding:0">✕</button>
+          </span>`).join('')}
+        ${!t.alunos.length ? '<span style="color:var(--muted);font-size:.78rem">Nenhum aluno cadastrado</span>' : ''}
+      </div>
+    </div>`).join('');
+}
+
+function removeAluno(tid, mat) {
+  if (!confirm('Remover este aluno?')) return;
+  ctxTurmas()[tid].alunos = ctxTurmas()[tid].alunos.filter(a => a.matricula !== mat);
+  saveAll(); renderAll(); toast('Aluno removido.');
 }
 
 function confirmAddStudent() {
-  const turma = document.getElementById('add-turma').value;
-  const mat   = document.getElementById('add-mat').value.trim();
-  const nome  = document.getElementById('add-nome').value.trim().toUpperCase();
+  const tid  = document.getElementById('add-turma').value;
+  const mat  = document.getElementById('add-mat').value.trim();
+  const nome = document.getElementById('add-nome').value.trim().toUpperCase();
   if (!mat || !nome) { alert('Preencha matrícula e nome.'); return; }
-  const existe = state.turmas[turma].alunos.find(a => a.matricula === mat);
-  if (existe) { alert('Matrícula já cadastrada.'); return; }
-  state.turmas[turma].alunos.push({ matricula: mat, nome });
+  if (!ctxTurmas()[tid]) ctxTurmas()[tid] = { alunos: [] };
+  if (ctxTurmas()[tid].alunos.find(a => a.matricula === mat)) { alert('Matrícula já cadastrada.'); return; }
+  ctxTurmas()[tid].alunos.push({ matricula: mat, nome });
   saveAll(); renderAll(); closeModal('modal-add-aluno');
   toast('Aluno adicionado!');
 }
-
-function renderTurmasMgr() {
-  const div = document.getElementById('turmas-mgr');
-  div.innerHTML = Object.entries(state.turmas).map(([id, t]) => `
-    <div style="margin-bottom:12px">
-      <span class="badge badge-${id.toLowerCase()}">${id}</span>
-      <span style="margin-left:8px;color:var(--muted);font-size:.82rem">${t.alunos.length} alunos</span>
-      <ul style="margin:8px 0 0 20px;font-size:.8rem;color:var(--text)">
-        ${t.alunos.map(a => `<li>${a.matricula} — ${a.nome}</li>`).join('')}
-      </ul>
-    </div>
-  `).join('');
-}
-
-// DRAG AND DROP
-const dropZone = document.getElementById('drop-zone');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault(); dropZone.classList.remove('drag-over');
-  const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf'));
-  if (files.length) {
-    const dt = new DataTransfer();
-    files.forEach(f => dt.items.add(f));
-    document.getElementById('pdf-input').files = dt.files;
-    handlePDFUpload({ target: { files: dt.files, value: '' } });
-  }
-});
 
 // ══════════════════════════════════════════════════════════
 //  RELATÓRIO
 // ══════════════════════════════════════════════════════════
 function renderRelatorio() {
-  const tbody = document.getElementById('rel-tbody');
+  const turmas  = ctxTurmas();
+  const tbody   = document.getElementById('rel-tbody');
   tbody.innerHTML = '';
   let tot = 0, aprov = 0;
 
-  ['B01','B02'].forEach(turmaId => {
-    const turma = state.turmas[turmaId];
-    turma.alunos.forEach(a => {
-      const { MF } = calcNotas(a.matricula);
-      const chT = chTotalAulas(turmaId);
-      const faltas = chFaltasAluno(a.matricula, turmaId);
-      const pct = chT ? freqPct(a.matricula, turmaId) : null;
-      const reprovFreq = pct !== null && pct < 75;
-      const situacao = MF === null ? '—' : (MF >= 5 && !reprovFreq) ? '✅ Aprovado' :
-                       reprovFreq ? '⛔ Rep. Frequência' : '❌ Reprovado';
+  Object.entries(turmas).forEach(([tid, t]) => {
+    t.alunos.forEach(a => {
+      const n = ctxNotas()[a.matricula] || {};
+      const { MT, N1, N2, MF } = calcNotas(a.matricula);
       tot++;
       if (MF !== null && MF >= 5) aprov++;
+      const sit = MF === null ? '<span class="sit-pendente">Pendente</span>'
+                : MF >= 5    ? '<span class="sit-aprovado">✅ Aprovado</span>'
+                             : '<span class="sit-reprovado">❌ Reprovado</span>';
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><span class="badge badge-${turmaId.toLowerCase()}">${turmaId}</span></td>
+        <td><span class="badge badge-b01">${tid}</span></td>
         <td>${a.nome}</td>
+        <td class="calc">${fmt(n.P1)}</td>
+        <td class="calc">${fmt(n.P2)}</td>
+        <td class="calc">${fmt(n.P3)}</td>
+        <td class="calc">${fmt(MT)}</td>
+        <td class="calc">${fmt(N1)}</td>
+        <td class="calc">${fmt(N2)}</td>
         <td class="calc ${MF===null?'':(MF>=5?'ok':'fail')}">${fmt(MF)}</td>
-        <td class="calc ${reprovFreq ? 'fail' : ''}">${pct !== null ? pct+'% ('+faltas+'h)' : '—'}</td>
-        <td>${situacao}</td>
-      `;
+        <td>${sit}</td>`;
       tbody.appendChild(tr);
     });
   });
 
-  document.getElementById('stats-relatorio').innerHTML = `
+  document.getElementById('stats-rel').innerHTML = `
     <div class="stat-box"><div class="val">${tot}</div><div class="lbl">Total alunos</div></div>
     <div class="stat-box"><div class="val" style="color:var(--accent2)">${aprov}</div><div class="lbl">Aprovados</div></div>
     <div class="stat-box"><div class="val" style="color:var(--danger)">${tot-aprov}</div><div class="lbl">Em risco</div></div>
     <div class="stat-box"><div class="val">${tot?Math.round(aprov/tot*100):0}%</div><div class="lbl">Taxa aprovação</div></div>
   `;
-
   renderCharts();
 }
 
 function renderCharts() {
-  ['B01','B02'].forEach((tid, idx) => {
-    const alunos = state.turmas[tid].alunos;
-    const mfs = alunos.map(a => calcNotas(a.matricula).MF).filter(v => v !== null);
-    const bins = [0,0,0,0,0]; // 0-2, 2-4, 4-6, 6-8, 8-10
-    mfs.forEach(v => { bins[Math.min(Math.floor(v/2), 4)]++; });
-    const chartId = idx === 0 ? 'chart-b01' : 'chart-b02';
-    const chartRef = idx === 0 ? chartB01 : chartB02;
-    if (chartRef) chartRef.destroy();
-    const ctx = document.getElementById(chartId).getContext('2d');
-    const newChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: ['0–2','2–4','4–6','6–8','8–10'],
-        datasets: [{ label: 'Alunos', data: bins,
-          backgroundColor: ['#e05555','#f0a030','#f0a030','#3d8ef0','#27c98f'],
-          borderRadius: 4 }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { grid: { color: '#2a3050' }, ticks: { color: '#7a82a6' } },
-          y: { grid: { color: '#2a3050' }, ticks: { color: '#7a82a6', stepSize: 1 } }
-        }
-      }
-    });
-    if (idx === 0) chartB01 = newChart; else chartB02 = newChart;
+  const allAlunos = Object.values(ctxTurmas()).flatMap(t => t.alunos);
+  const mfs = allAlunos.map(a => calcNotas(a.matricula).MF).filter(v => v !== null);
+  const bins = [0,0,0,0,0];
+  mfs.forEach(v => bins[Math.min(Math.floor(v/2),4)]++);
+
+  if (chartMF) chartMF.destroy();
+  chartMF = new Chart(document.getElementById('chart-mf').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['0–2','2–4','4–6','6–8','8–10'],
+      datasets: [{ label:'Alunos', data: bins,
+        backgroundColor:['#e05555','#f0a030','#f0a030','#3d8ef0','#27c98f'],
+        borderRadius: 4 }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}},
+      scales:{ x:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}},
+               y:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6',stepSize:1}} }}
+  });
+
+  // Média por avaliação
+  const campos = ['P1','P2','P3','T1','T2','T3','T4'];
+  const mediaAval = campos.map(c => {
+    const vals = allAlunos.map(a=>ctxNotas()[a.matricula]?.[c]).filter(v=>v!==undefined&&v!=='');
+    return vals.length ? vals.reduce((a,b)=>a+parseFloat(b),0)/vals.length : 0;
+  });
+  if (chartAval) chartAval.destroy();
+  chartAval = new Chart(document.getElementById('chart-aval').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: campos,
+      datasets: [{ label:'Média', data: mediaAval.map(v=>parseFloat(v.toFixed(2))),
+        backgroundColor: '#3d8ef0', borderRadius: 4 }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}},
+      scales:{ x:{grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}},
+               y:{min:0,max:10,grid:{color:'#2a3050'},ticks:{color:'#7a82a6'}} }}
   });
 }
 
 // ══════════════════════════════════════════════════════════
-//  EXPORT CSV
+//  CONFIG
 // ══════════════════════════════════════════════════════════
-function exportCSV() {
-  const turma = state.turmas[activeTurmaNotas];
-  const rows = [['Matrícula','Nome','P1','P2','P3','T1','T2','T3','T4','MT','N1','N2','MF']];
-  turma.alunos.forEach(a => {
-    const n = state.notas[a.matricula] || {};
-    const { MT, N1, N2, MF } = calcNotas(a.matricula);
-    rows.push([a.matricula, a.nome,
-      n.P1||'', n.P2||'', n.P3||'', n.T1||'', n.T2||'', n.T3||'', n.T4||'',
-      MT!==null?MT.toFixed(2):'', N1!==null?N1.toFixed(2):'',
-      N2!==null?N2.toFixed(2):'', MF!==null?MF.toFixed(2):''
-    ]);
-  });
-  const csv = rows.map(r => r.join(';')).join('\n');
-  const blob = new Blob(['\ufeff'+csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url;
-  a.download = `notas_${activeTurmaNotas}_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click(); toast('CSV exportado!');
+function renderConfig() {
+  const div = document.getElementById('config-disciplinas');
+  div.innerHTML = state.disciplinas.map((d,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-weight:700;color:var(--accent)">${d.codigo}</span>
+      <span>${d.nome}${d.sufixo?' — '+d.sufixo:''}</span>
+      <span style="flex:1"></span>
+      ${i >= DISC_DEFAULT.length
+        ? `<button class="btn btn-danger btn-sm" onclick="removeDisc('${d.id}')">🗑</button>`
+        : '<span style="font-size:.72rem;color:var(--muted)">padrão</span>'}
+    </div>`).join('');
+
+  // Preencher tokens salvos
+  const tok = localStorage.getItem(GIST_TOK_KEY)||'';
+  const gid = localStorage.getItem(GIST_ID_KEY)||'';
+  if (tok) document.getElementById('gist-token').value = tok;
+  if (gid) document.getElementById('gist-id').value   = gid;
+}
+
+function confirmNovaDisc() {
+  const cod    = document.getElementById('nd-codigo').value.trim().toUpperCase();
+  const nome   = document.getElementById('nd-nome').value.trim();
+  const sufixo = document.getElementById('nd-sufixo').value.trim();
+  if (!cod || !nome) { alert('Código e nome são obrigatórios.'); return; }
+  const id = cod + (sufixo ? '_' + sufixo.replace(/\s+/g,'') : '');
+  if (state.disciplinas.find(d => d.id === id)) { alert('Disciplina já existe.'); return; }
+  state.disciplinas.push({ id, codigo: cod, nome, sufixo });
+  buildDiscSelect(); saveAll();
+  closeModal('modal-nova-disc'); renderConfig();
+  toast('Disciplina criada!');
+}
+
+function removeDisc(id) {
+  if (!confirm('Remover disciplina? Os dados ficam preservados no JSON.')) return;
+  state.disciplinas = state.disciplinas.filter(d => d.id !== id);
+  if (ctx.discId === id) { ctx.discId = state.disciplinas[0].id; buildDiscSelect(); }
+  saveAll(); renderConfig(); toast('Disciplina removida.');
+}
+
+function limparTurma() {
+  if (!confirm(`Remover todos os alunos de ${ctx.turmaId} em ${ctx.discId} ${semKey()}?`)) return;
+  ctxTurmas()[ctx.turmaId].alunos = [];
+  saveAll(); renderAll(); toast('Turma limpa.');
 }
 
 // ══════════════════════════════════════════════════════════
-//  TABS / MODAL / TOAST
+//  TABS / MODAL / TOAST / UTIL
 // ══════════════════════════════════════════════════════════
-function switchTab(name) {
+function switchTab(name, btn) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (name === 'relatorio') renderRelatorio();
-  if (name === 'importar') renderTurmasMgr();
+  if (name === 'config')    renderConfig();
+  if (name === 'importar')  renderAlunosMgr();
 }
 
-function openModal(id) { document.getElementById(id).classList.add('open'); }
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-backdrop').forEach(m =>
+  m.addEventListener('click', e => { if (e.target===m) m.classList.remove('open'); }));
 
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 2500);
+  setTimeout(() => t.style.display='none', 2500);
 }
 
-// Fechar modal ao clicar fora
-document.querySelectorAll('.modal-backdrop').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+// ══════════════════════════════════════════════════════════
+//  DROP ZONE
+// ══════════════════════════════════════════════════════════
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files).filter(f=>f.name.endsWith('.pdf'));
+  if (files.length) handlePDFUpload({ target:{ files, value:'' } });
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1452,33 +1212,65 @@ document.querySelectorAll('.modal-backdrop').forEach(m => {
 // ══════════════════════════════════════════════════════════
 function renderAll() {
   renderNotas();
-  renderFreq();
   renderDiario();
-  renderTurmasMgr();
+  renderAlunosMgr();
+  updateBadge();
+  // Popular modal add-turma
+  const sel = document.getElementById('add-turma');
+  if (sel) {
+    sel.innerHTML = Object.keys(ctxTurmas()).map(t=>`<option value="${t}">${t}</option>`).join('');
+  }
 }
 
 // ══════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════
 async function init() {
-  // Carregar dados salvos
   loadLocal();
 
-  // Se nenhuma turma tem alunos, inserir os padrão dos PDFs
-  ['B01','B02'].forEach(t => {
-    if (!state.turmas[t].alunos || !state.turmas[t].alunos.length) {
-      state.turmas[t].alunos = ALUNOS_INICIAIS[t];
-    }
+  // Recompor disciplinas (mesclar padrão + salvas)
+  const savedIds = state.disciplinas.map(d=>d.id);
+  DISC_DEFAULT.forEach(d => { if (!savedIds.includes(d.id)) state.disciplinas.unshift(d); });
+
+  // Semestre atual por default
+  const now = new Date();
+  ctx.ano      = now.getFullYear();
+  ctx.semestre = now.getMonth() < 6 ? 1 : 2;
+
+  // Construir selects
+  buildAnoSelect();
+  buildDiscSelect();
+
+  // Atualizar labels semestre no select
+  document.querySelectorAll('#sel-semestre option').forEach(o => {
+    o.textContent = `${ctx.ano}.${o.value}`;
+    if (parseInt(o.value) === ctx.semestre) o.selected = true;
   });
 
-  // Tentar Gist
-  const fromGist = await loadGist();
-  if (fromGist) toast('Dados carregados do Gist!');
-
-  // Data default
-  document.getElementById('nova-aula-date').value = new Date().toISOString().slice(0,10);
-
+  updateBadge();
   renderAll();
+
+  // Tentar Gist silenciosamente
+  const token  = localStorage.getItem(GIST_TOK_KEY);
+  const gistId = localStorage.getItem(GIST_ID_KEY);
+  if (token && gistId) {
+    const ok = await loadGistSilent();
+    if (ok) toast('Dados sincronizados do Gist!');
+  }
+}
+
+async function loadGistSilent() {
+  const token  = localStorage.getItem(GIST_TOK_KEY);
+  const gistId = localStorage.getItem(GIST_ID_KEY);
+  if (!token || !gistId) return false;
+  try {
+    const r = await fetch(`https://api.github.com/gists/${gistId}`,
+                          { headers:{ Authorization:`token ${token}` } });
+    const d = await r.json();
+    const c = d?.files?.['diario_professor.json']?.content;
+    if (c) { state = deepMerge(state, JSON.parse(c)); renderAll(); return true; }
+  } catch(e) {}
+  return false;
 }
 
 init();
