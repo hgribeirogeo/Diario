@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Minhas notas — Portal do Aluno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg:      #EEF2F5;
+    --paper:   #FFFFFF;
+    --ink:     #13243A;
+    --soft:    #5B6B7E;
+    --line:    #D5DDE5;
+    --blue:    #1F5FAE;
+    --ok:      #1E7F4F;
+    --bad:     #B3261E;
+    --pend:    #9A5B00;
+    --field:   #F6F8FA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg:    #0E1621;
+      --paper: #16212F;
+      --ink:   #E6ECF2;
+      --soft:  #93A3B5;
+      --line:  #2A3A4E;
+      --blue:  #6FA8F0;
+      --ok:    #5CC48F;
+      --bad:   #F08A82;
+      --pend:  #E7B65C;
+      --field: #1C2A3B;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { height: 100%; }
+  body {
+    min-height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: 'Atkinson Hyperlegible', system-ui, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px; line-height: 1.5;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .wrap { max-width: 34rem; margin: 0 auto; padding: 28px 18px 48px; }
+
+  .top h1 { font-size: 1.6rem; line-height: 1.2; }
+  .top p  { color: var(--soft); margin-top: 6px; font-size: .95rem; }
+
+  .panel {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px 20px; margin-top: 22px;
+  }
+  label { display: block; font-weight: 700; font-size: .95rem; margin-top: 14px; }
+  label:first-child { margin-top: 0; }
+  label small { display: block; font-weight: 400; color: var(--soft); font-size: .82rem; }
+  input {
+    width: 100%; margin-top: 6px; padding: 12px 14px;
+    font: inherit; font-size: 1.1rem; color: var(--ink);
+    background: var(--field); border: 1.5px solid var(--line); border-radius: 10px;
+  }
+  input#cod { letter-spacing: .3em; text-transform: uppercase; }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .primary {
+    width: 100%; margin-top: 20px; padding: 13px;
+    font: inherit; font-weight: 700; font-size: 1.05rem;
+    background: var(--blue); color: #fff; border: 0; border-radius: 10px; cursor: pointer;
+  }
+  .primary[disabled] { opacity: .6; cursor: progress; }
+  .msg { margin-top: 14px; font-size: .92rem; }
+  .msg.err { color: var(--bad); }
+  .privacy { margin-top: 16px; font-size: .82rem; color: var(--soft); }
+
+  /* resultado */
+  .disc { margin-top: 22px; }
+  .disc h2 { font-size: 1.15rem; line-height: 1.3; }
+  .disc .meta { color: var(--soft); font-size: .9rem; }
+
+  .score { display: flex; align-items: baseline; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .score .mf { font-size: 3.2rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .score .what { font-size: .9rem; color: var(--soft); }
+  .badge { font-weight: 700; font-size: .85rem; padding: 4px 10px; border-radius: 999px; border: 1.5px solid currentColor; }
+  .s-ok   { color: var(--ok); }
+  .s-bad  { color: var(--bad); }
+  .s-pend { color: var(--pend); }
+
+  /* régua 0–10 inspirada na mira de nivelamento */
+  .rod { position: relative; height: 34px; margin-top: 14px; }
+  .rod .track { position: absolute; left: 0; right: 0; top: 6px; height: 12px; border-radius: 3px;
+    background: repeating-linear-gradient(90deg, var(--field) 0 10%, var(--line) 10% 20%); border: 1px solid var(--line); }
+  .rod .fill  { position: absolute; left: 0; top: 6px; height: 12px; border-radius: 3px 0 0 3px; }
+  .rod .min   { position: absolute; top: 0; height: 24px; width: 2px; background: var(--ink); left: 60%; }
+  .rod .ticks { position: absolute; left: 0; right: 0; top: 20px; display: flex; justify-content: space-between;
+    font-size: .7rem; color: var(--soft); font-variant-numeric: tabular-nums; }
+
+  .note { margin-top: 12px; font-size: .9rem; color: var(--soft); }
+
+  .grades { margin-top: 18px; }
+  .grades h3 { font-size: .95rem; margin: 14px 0 8px; }
+  .row { display: grid; gap: 8px; }
+  .row.p { grid-template-columns: repeat(3, 1fr); }
+  .row.t { grid-template-columns: repeat(4, 1fr); }
+  .cell { background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 10px 8px; text-align: center; }
+  .cell .k { font-size: .8rem; color: var(--soft); }
+  .cell .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cell.empty .v { font-size: .8rem; font-weight: 400; color: var(--soft); padding: 5px 0; }
+
+  .calc { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .calc div { display: flex; justify-content: space-between; padding: 3px 0; font-size: .93rem; }
+  .calc span:last-child { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .rules { font-size: .86rem; color: var(--soft); }
+  .rules p + p { margin-top: 8px; }
+  .rules b { color: var(--ink); }
+
+  .foot { margin-top: 22px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-size: .82rem; color: var(--soft); }
+  .ghost { font: inherit; font-weight: 700; background: none; border: 1.5px solid var(--line); color: var(--ink);
+    padding: 8px 14px; border-radius: 10px; cursor: pointer; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: no-preference) {
+    .rod .fill { transition: width .6s ease-out; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="top">
+    <h1>Minhas notas</h1>
+    <p id="sub">Portal do Aluno · Prof. Hugo José Ribeiro · EECA/UFG</p>
+  </div>
+
+  <!-- Link inválido -->
+  <section class="panel" id="v-invalido" hidden>
+    <p><b>Este link está incompleto.</b></p>
+    <p class="note">Abra o portal pelo QR code entregue pelo professor.</p>
+  </section>
+
+  <!-- Login -->
+  <section class="panel" id="v-login" hidden>
+    <form id="f" autocomplete="off" novalidate>
+      <label for="mat">Matrícula
+        <input id="mat" inputmode="numeric" pattern="[0-9]*" maxlength="12" placeholder="Ex.: 202302384">
+      </label>
+      <label for="cod">Código de acesso
+        <small>Os 6 caracteres impressos na sua ficha.</small>
+        <input id="cod" maxlength="6" autocapitalize="characters" spellcheck="false" placeholder="••••••">
+      </label>
+      <button class="primary" id="btn" type="submit">Ver minhas notas</button>
+      <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    </form>
+    <p class="privacy">Cada código abre apenas as notas da própria matrícula. Não compartilhe o seu.</p>
+  </section>
+
+  <!-- Resultado -->
+  <section id="v-res" hidden>
+    <div id="res"></div>
+
+    <div class="panel rules">
+      <p><b>Como a nota é calculada.</b> N1 é a média de P1 e P2. A média dos relatórios (MT) é a média de T1 a T4. N2 é a média de MT e P3. A média final (MF) é a média de N1 e N2.</p>
+      <p><b>Aprovação:</b> MF igual ou maior que 6,0, com as sete avaliações lançadas.</p>
+      <p><b>Avaliação não entregue vale zero.</b> Por isso a média parcial sobe à medida que as notas são lançadas.</p>
+    </div>
+
+    <div class="foot">
+      <span id="upd"></span>
+      <button class="ghost" id="sair" type="button">Sair</button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const FILE = 'portal_alunos.json';
+  const qs   = new URLSearchParams(location.search);
+  const OWNER = qs.get('u'), GIST = qs.get('g');
+  const te = new TextEncoder(), td = new TextDecoder();
+  const $ = id => document.getElementById(id);
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const unhex = h => { const a = new Uint8Array(h.length / 2); for (let i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; };
+  const unb64 = s => { const b = atob(s); const a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; };
+  const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  const sha256Hex = async s => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(s))));
+  const n2 = v => (v === null || v === undefined) ? '—' : Number(v).toFixed(2).replace('.', ',');
+
+  async function deriveKey(mat, cod, saltHex, iter) {
+    const base = await crypto.subtle.importKey('raw', te.encode(mat + ':' + cod), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: unhex(saltHex), iterations: iter, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  }
+
+  async function baixar() {
+    const raw = `https://gist.githubusercontent.com/${encodeURIComponent(OWNER)}/${encodeURIComponent(GIST)}/raw/${FILE}?t=${Date.now()}`;
+    try {
+      const r = await fetch(raw, { cache: 'no-store' });
+      if (r.ok) return await r.json();
+    } catch (e) { /* tenta a API abaixo */ }
+    const r2 = await fetch(`https://api.github.com/gists/${encodeURIComponent(GIST)}`, { cache: 'no-store' });
+    if (!r2.ok) throw new Error('indisponível');
+    const d = await r2.json();
+    const f = d.files && d.files[FILE];
+    if (!f) throw new Error('indisponível');
+    if (f.truncated && f.raw_url) return (await fetch(f.raw_url)).json();
+    return JSON.parse(f.content);
+  }
+
+  function erro(t) { $('msg').className = 'msg err'; $('msg').textContent = t; }
+
+  async function consultar(matIn, codIn) {
+    const mat = String(matIn).replace(/\D/g, '');
+    const cod = String(codIn).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!mat || cod.length !== 6) { erro('Informe a matrícula e o código de 6 caracteres.'); return; }
+    if (!(window.crypto && crypto.subtle)) { erro('Este navegador não suporta a consulta. Atualize o navegador.'); return; }
+
+    $('btn').disabled = true; $('btn').textContent = 'Consultando…';
+    $('msg').className = 'msg'; $('msg').textContent = '';
+    try {
+      let arq;
+      try { arq = await baixar(); }
+      catch (e) { erro('O portal não respondeu. Verifique a conexão e tente de novo.'); return; }
+
+      // A chave é derivada antes da busca para que matrícula inexistente e código errado levem o mesmo tempo.
+      const key = await deriveKey(mat, cod, arq.salt, arq.iter);
+      const ent = arq.entradas && arq.entradas[await sha256Hex(arq.salt + ':' + mat)];
+      const falha = 'Matrícula ou código incorretos. Confira a sua ficha de acesso.';
+      if (!ent) { erro(falha); return; }
+      let dados;
+      try {
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(ent.iv) }, key, unb64(ent.ct));
+        dados = JSON.parse(td.decode(pt));
+      } catch (e) { erro(falha); return; }
+      mostrar(dados, arq.atualizado);
+    } finally {
+      $('btn').disabled = false; $('btn').textContent = 'Ver minhas notas';
+    }
+  }
+
+  function cell(k, v) {
+    return v === null || v === undefined
+      ? `<div class="cell empty"><div class="k">${k}</div><div class="v">não entregue</div></div>`
+      : `<div class="cell"><div class="k">${k}</div><div class="v">${n2(v)}</div></div>`;
+  }
+
+  function mostrar(d, atualizado) {
+    const html = (d.disciplinas || []).map(x => {
+      const cls = x.situacao === 'APROVADO' ? 's-ok' : x.situacao === 'REPROVADO' ? 's-bad' : 's-pend';
+      const txt = x.situacao === 'APROVADO' ? 'Aprovado' : x.situacao === 'REPROVADO' ? 'Reprovado' : 'Em andamento';
+      const cor = x.MF >= 6 ? 'var(--ok)' : x.MF >= 4 ? 'var(--pend)' : 'var(--bad)';
+      const pend = 7 - x.entregas;
+      const nota = x.situacao === 'EM ANDAMENTO'
+        ? `Média parcial com ${x.entregas} de 7 avaliações lançadas. ${pend === 1 ? 'A avaliação pendente conta' : `As ${pend} avaliações pendentes contam`} como zero até serem lançadas.`
+        : `Resultado com as 7 avaliações lançadas.`;
+      const nt = x.notas || {};
+      return `
+      <article class="panel disc">
+        <h2>${esc(x.disciplina)}</h2>
+        <div class="meta">Semestre ${esc(x.semestre)}, turma ${esc(x.turma)}</div>
+
+        <div class="score">
+          <span class="mf" style="color:${cor}">${n2(x.MF)}</span>
+          <span class="what">média final${x.situacao === 'EM ANDAMENTO' ? ' parcial' : ''}</span>
+          <span class="badge ${cls}">${txt}</span>
+        </div>
+        <div class="rod" aria-hidden="true">
+          <div class="track"></div>
+          <div class="fill" style="width:${Math.max(0, Math.min(100, x.MF * 10))}%;background:${cor}"></div>
+          <div class="min" title="Mínimo para aprovação: 6,0"></div>
+          <div class="ticks"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>
+        </div>
+        <p class="note">${nota}</p>
+
+        <div class="grades">
+          <h3>Seminários</h3>
+          <div class="row p">${cell('P1', nt.P1)}${cell('P2', nt.P2)}${cell('P3', nt.P3)}</div>
+          <h3>Relatórios</h3>
+          <div class="row t">${cell('T1', nt.T1)}${cell('T2', nt.T2)}${cell('T3', nt.T3)}${cell('T4', nt.T4)}</div>
+        </div>
+
+        <div class="calc">
+          <div><span>N1 (P1 e P2)</span><span>${n2(x.N1)}</span></div>
+          <div><span>Média dos relatórios (MT)</span><span>${n2(x.MT)}</span></div>
+          <div><span>N2 (MT e P3)</span><span>${n2(x.N2)}</span></div>
+          <div><span>Média final (MF)</span><span>${n2(x.MF)}</span></div>
+        </div>
+      </article>`;
+    }).join('');
+
+    $('res').innerHTML = html || '<div class="panel">Nenhuma disciplina publicada para esta matrícula.</div>';
+    $('sub').textContent = `Matrícula ${d.matricula}`;
+    $('upd').textContent = atualizado ? `Notas publicadas em ${new Date(atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '';
+    $('v-login').hidden = true; $('v-res').hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  function sair() {
+    $('res').innerHTML = ''; $('mat').value = ''; $('cod').value = ''; $('msg').textContent = '';
+    $('sub').textContent = 'Portal do Aluno · Prof. Hugo José Ribeiro · EECA/UFG';
+    $('v-res').hidden = true; $('v-login').hidden = false;
+  }
+
+  // ── início ──
+  if (!OWNER || !GIST) { $('v-invalido').hidden = false; return; }
+  $('v-login').hidden = false;
+  $('f').addEventListener('submit', e => { e.preventDefault(); consultar($('mat').value, $('cod').value); });
+  $('sair').addEventListener('click', sair);
+
+  // QR pessoal da ficha: #m=MATRICULA&c=CODIGO (o fragmento nunca é enviado ao servidor)
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('m') && h.get('c')) {
+    $('mat').value = h.get('m'); $('cod').value = h.get('c');
+    history.replaceState(null, '', location.pathname + location.search); // remove credenciais da barra/histórico
+    consultar($('mat').value, $('cod').value);
+  }
+})();
+</script>
+</body>
+</html>

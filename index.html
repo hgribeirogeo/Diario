@@ -398,6 +398,7 @@
     <button class="tab-btn"        onclick="switchTab('importar',this)">📁 Importar PDF</button>
     <button class="tab-btn"        onclick="switchTab('relatorio',this)">📈 Relatório</button>
     <button class="tab-btn"        onclick="switchTab('analytics',this)">🔬 Analytics</button>
+    <button class="tab-btn"        onclick="switchTab('portal',this)">🎓 Portal do Aluno</button>
     <button class="tab-btn"        onclick="switchTab('config',this)">⚙ Config</button>
   </div>
 
@@ -638,6 +639,41 @@
 
 </section>
 
+<!-- ══ PORTAL DO ALUNO ══ -->
+<section class="section" id="tab-portal">
+  <div class="card">
+    <div class="card-title">🎓 Portal do Aluno — divulgação individual de notas</div>
+    <p style="font-size:.82rem;color:var(--muted);line-height:1.6;margin-bottom:12px">
+      As notas são publicadas <b style="color:var(--text)">criptografadas (AES-256-GCM)</b> em um Gist exclusivo do portal, separado do Gist do sistema.
+      Nomes não são publicados e as matrículas aparecem apenas como hash. Cada aluno abre somente o próprio registro com
+      <b style="color:var(--text)">matrícula + código individual</b>. Após lançar ou alterar notas, clique em
+      <b style="color:var(--text)">Publicar / atualizar</b> para refletir no portal.
+    </p>
+    <div id="portal-status" style="font-size:.82rem;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="publicarPortal(true)">📤 Publicar / atualizar esta disciplina</button>
+      <button class="btn btn-ghost btn-sm" onclick="imprimirFichas()">🖨 Imprimir fichas de acesso</button>
+      <button class="btn btn-ghost btn-sm" onclick="publicarPortal(false)">⛔ Retirar esta disciplina do portal</button>
+    </div>
+    <div id="portal-log" style="font-size:.8rem;color:var(--muted);margin-top:10px"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(240px,300px) 1fr;gap:16px">
+    <div class="card" style="text-align:center">
+      <div class="card-title">QR code geral do portal</div>
+      <div id="portal-qr" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
+      <div id="portal-link" style="font-size:.72rem;color:var(--muted);word-break:break-all;margin-top:10px"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="copiarLinkPortal()">📋 Copiar link</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Códigos de acesso — <span id="portal-ctx"></span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th style="text-align:left">Matrícula</th><th style="text-align:left">Nome</th><th>Turma</th><th>Código</th><th></th></tr></thead>
+        <tbody id="portal-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ CONFIG ══ -->
 <section class="section" id="tab-config">
   <div class="card">
@@ -747,6 +783,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // GlobalWorkerOptions será setado no init() após carregamento do pdf.js
 
@@ -1050,11 +1087,9 @@ function switchToApp(tab) {
   document.getElementById('tela-capa').classList.remove('active');
   document.getElementById('tela-app').classList.add('active');
   renderBreadcrumb(); renderAll();
-  const btns = document.querySelectorAll('.tab-btn');
-  const secs = document.querySelectorAll('.section');
-  const idx  = ['notas','diario','importar','relatorio','config'].indexOf(tab);
-  btns.forEach((b,i) => b.classList.toggle('active', i===idx));
-  secs.forEach((s,i) => s.classList.toggle('active', i===idx));
+  document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
+  document.querySelectorAll('.tab-btn').forEach(b =>
+    b.classList.toggle('active', (b.getAttribute('onclick') || '').includes("'" + tab + "'")));
   if (tab==='config')    renderConfig();
   if (tab==='relatorio') renderRelatorio();
 }
@@ -2063,6 +2098,243 @@ function renderAnalytics() {
 }
 
 // ══════════════════════════════════════════════════════════
+//  PORTAL DO ALUNO — v1.2
+//  Publica notas criptografadas (PBKDF2-SHA256 → AES-256-GCM)
+//  em um Gist separado. A página aluno.html descriptografa no navegador.
+// ══════════════════════════════════════════════════════════
+const PORTAL_FILE  = 'portal_alunos.json';
+const PORTAL_ITER  = 150000;
+const COD_ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 símbolos, sem 0/O/1/I
+const _te = new TextEncoder();
+
+function _hex(b){ return Array.from(b, x => x.toString(16).padStart(2,'0')).join(''); }
+function _unhex(h){ const a = new Uint8Array(h.length/2); for (let i=0;i<a.length;i++) a[i] = parseInt(h.substr(i*2,2),16); return a; }
+function _b64(b){ let s=''; for (let i=0;i<b.length;i++) s += String.fromCharCode(b[i]); return btoa(s); }
+async function _sha256Hex(str){ return _hex(new Uint8Array(await crypto.subtle.digest('SHA-256', _te.encode(str)))); }
+async function _derivarChave(mat, cod, saltHex, iter){
+  const base = await crypto.subtle.importKey('raw', _te.encode(mat + ':' + cod), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name:'PBKDF2', salt:_unhex(saltHex), iterations:iter, hash:'SHA-256' },
+    base, { name:'AES-GCM', length:256 }, false, ['encrypt']);
+}
+
+function portalCfg(){
+  if (!state.portal) state.portal = {};
+  const p = state.portal;
+  if (!p.codigos)    p.codigos = {};
+  if (!p.publicados) p.publicados = {};
+  if (!p.salt)       p.salt = _hex(crypto.getRandomValues(new Uint8Array(16)));
+  return p;
+}
+function gerarCodigo(){
+  const r = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(r, b => COD_ALFABETO[b % 32]).join('');
+}
+function codigoAluno(mat){
+  const p = portalCfg();
+  if (!p.codigos[mat]) p.codigos[mat] = gerarCodigo();
+  return p.codigos[mat];
+}
+function portalKey(){ return ctx.discId + '|' + semKey(); }
+function portalURL(){
+  const p = portalCfg();
+  if (!p.gistId || !p.owner) return null;
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '') + 'aluno.html';
+  return `${base}?u=${encodeURIComponent(p.owner)}&g=${encodeURIComponent(p.gistId)}`;
+}
+
+// Mesmas fórmulas de calcNotas, sem depender do contexto ativo
+function _calcObj(n){
+  const MT = (valOuZero(n.T1)+valOuZero(n.T2)+valOuZero(n.T3)+valOuZero(n.T4))/4;
+  const N1 = (valOuZero(n.P1)+valOuZero(n.P2))/2;
+  const N2 = (MT+valOuZero(n.P3))/2;
+  const MF = (N1+N2)/2;
+  return { MT, N1, N2, MF };
+}
+function _registrosContexto(discId, sk){
+  const dados = state.dados?.[discId]?.[sk];
+  const disc  = state.disciplinas.find(d => d.id === discId);
+  if (!dados || !disc) return [];
+  const [ano, sem] = sk.split('_');
+  const out = [];
+  Object.entries(dados.turmas || {}).forEach(([tid, t]) => {
+    (t.alunos || []).forEach(a => {
+      const n = (dados.notas || {})[a.matricula] || {};
+      const notas = {};
+      TODOS_CAMPOS.forEach(k => { notas[k] = preenchido(n[k]) ? parseFloat(n[k]) : null; });
+      const entregas = TODOS_CAMPOS.filter(k => notas[k] !== null).length;
+      const c = _calcObj(n);
+      out.push({ matricula: a.matricula, registro: {          // nome do aluno NÃO é publicado
+        disciplina: `${disc.codigo} · ${disc.nome}${disc.sufixo ? ' — ' + disc.sufixo : ''}`,
+        semestre: `${ano}.${sem}`, turma: tid, notas,
+        MT: +c.MT.toFixed(2), N1: +c.N1.toFixed(2), N2: +c.N2.toFixed(2), MF: +c.MF.toFixed(2),
+        entregas, situacao: entregas === 7 ? (c.MF >= 6 ? 'APROVADO' : 'REPROVADO') : 'EM ANDAMENTO'
+      }});
+    });
+  });
+  return out;
+}
+
+async function publicarPortal(incluir){
+  const p     = portalCfg();
+  const log   = document.getElementById('portal-log');
+  const token = localStorage.getItem(GIST_TOK_KEY);
+  if (!token) { alert('Configure o token do GitHub na aba ⚙ Config antes de publicar.'); return; }
+  if (!(window.crypto && crypto.subtle)) { alert('Criptografia indisponível neste navegador (requer HTTPS).'); return; }
+  const chave = portalKey();
+  if (!incluir && !p.publicados[chave]) { toast('Esta disciplina não está publicada.'); return; }
+  if (!incluir && !confirm('Retirar esta disciplina do portal? Os alunos deixarão de ver estas notas.')) return;
+
+  const anterior = p.publicados[chave];
+  if (incluir) p.publicados[chave] = new Date().toISOString(); else delete p.publicados[chave];
+
+  try {
+    // Agrupar por matrícula (um aluno pode cursar mais de uma disciplina publicada)
+    const porMat = {};
+    Object.keys(p.publicados).forEach(k => {
+      const [discId, sk] = k.split('|');
+      _registrosContexto(discId, sk).forEach(r => { (porMat[r.matricula] = porMat[r.matricula] || []).push(r.registro); });
+    });
+    const mats = Object.keys(porMat);
+    const entradas = {};
+    for (let i = 0; i < mats.length; i++) {
+      const mat = mats[i];
+      log.textContent = `🔐 Criptografando ${i+1} de ${mats.length}...`;
+      const id  = await _sha256Hex(p.salt + ':' + mat);
+      const key = await _derivarChave(mat, codigoAluno(mat), p.salt, PORTAL_ITER);
+      const iv  = crypto.getRandomValues(new Uint8Array(12));
+      const pt  = _te.encode(JSON.stringify({ matricula: mat, disciplinas: porMat[mat] }));
+      const ct  = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, pt));
+      entradas[id] = { iv: _b64(iv), ct: _b64(ct) };
+    }
+    const arquivo = { v:1, alg:'PBKDF2-SHA256 + AES-256-GCM', iter:PORTAL_ITER, salt:p.salt,
+                      atualizado:new Date().toISOString(), entradas };
+
+    log.textContent = '☁ Enviando ao Gist do portal...';
+    const headers = { Authorization: `token ${token}`, 'Content-Type': 'application/json' };
+    const files   = { [PORTAL_FILE]: { content: JSON.stringify(arquivo) } };
+    const r = p.gistId
+      ? await fetch(`https://api.github.com/gists/${p.gistId}`, { method:'PATCH', headers, body: JSON.stringify({ files }) })
+      : await fetch('https://api.github.com/gists', { method:'POST', headers,
+          body: JSON.stringify({ files, public:false, description:'DiárioProf — Portal do Aluno (dados criptografados)' }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || ('HTTP ' + r.status));
+    p.gistId = d.id;
+    p.owner  = (d.owner && d.owner.login) || p.owner;
+    saveAll();
+    log.innerHTML = `<span style="color:var(--accent2)">✓ Portal atualizado: ${mats.length} aluno(s), ${Object.keys(p.publicados).length} disciplina(s) publicada(s).</span>
+      O GitHub pode levar alguns minutos para refletir a atualização.`;
+    renderPortal();
+  } catch (e) {
+    if (anterior) p.publicados[chave] = anterior; else delete p.publicados[chave];
+    log.innerHTML = `<span style="color:var(--danger)">⚠ Falha ao publicar: ${e.message}</span>`;
+  }
+}
+
+function renderPortal(){
+  const p     = portalCfg();
+  const disc  = state.disciplinas.find(d => d.id === ctx.discId);
+  const pub   = p.publicados[portalKey()];
+  const url   = portalURL();
+  document.getElementById('portal-ctx').textContent = disc ? `${disc.codigo} · ${ctx.ano}.${ctx.semestre}` : '';
+  document.getElementById('portal-status').innerHTML = pub
+    ? `<span style="color:var(--accent2);font-weight:700">● Publicada no portal</span>
+       <span style="color:var(--muted)"> — última publicação em ${new Date(pub).toLocaleString('pt-BR')}</span>`
+    : `<span style="color:var(--warn);font-weight:700">○ Não publicada</span>
+       <span style="color:var(--muted)"> — os alunos ainda não veem esta disciplina.</span>`;
+
+  const qr = document.getElementById('portal-qr');
+  const lk = document.getElementById('portal-link');
+  qr.innerHTML = '';
+  if (url && typeof QRCode !== 'undefined') {
+    new QRCode(qr, { text:url, width:200, height:200, correctLevel: QRCode.CorrectLevel.M });
+    lk.textContent = url;
+  } else if (url) {
+    qr.innerHTML = '<div style="color:#555;font-size:.75rem;width:200px;padding:30px 10px">Biblioteca de QR code não carregou.</div>';
+    lk.textContent = url;
+  } else {
+    qr.innerHTML = '<div style="color:#555;font-size:.75rem;width:200px;padding:30px 10px">Publique uma disciplina para gerar o QR code do portal.</div>';
+    lk.textContent = '';
+  }
+
+  let novos = false;
+  const rows = [];
+  Object.entries(ctxTurmas()).forEach(([tid, t]) => t.alunos.forEach(a => {
+    if (!p.codigos[a.matricula]) { p.codigos[a.matricula] = gerarCodigo(); novos = true; }
+    rows.push(`<tr><td>${a.matricula}</td><td>${a.nome}</td><td style="text-align:center">${tid}</td>
+      <td style="text-align:center;font-family:monospace;font-weight:700;letter-spacing:.12em;color:var(--accent)">${p.codigos[a.matricula]}</td>
+      <td style="text-align:center"><button class="btn btn-ghost btn-sm" title="Gerar novo código" onclick="regenerarCodigo('${a.matricula}')">↻</button></td></tr>`);
+  }));
+  document.getElementById('portal-tbody').innerHTML = rows.join('') ||
+    '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">Nenhum aluno nesta disciplina/semestre.</td></tr>';
+  if (novos) saveAll();
+}
+
+function regenerarCodigo(mat){
+  if (!confirm(`Gerar novo código para ${mat}? O código atual deixará de funcionar após a próxima publicação.`)) return;
+  portalCfg().codigos[mat] = gerarCodigo();
+  saveAll(); renderPortal();
+  toast('Novo código gerado. Clique em Publicar / atualizar.');
+}
+
+function copiarLinkPortal(){
+  const url = portalURL();
+  if (!url) { toast('Publique uma disciplina primeiro.'); return; }
+  navigator.clipboard.writeText(url).then(() => toast('Link copiado!'), () => prompt('Copie o link:', url));
+}
+
+function _qrDataURL(text, size){
+  const tmp = document.createElement('div');
+  new QRCode(tmp, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.M });
+  const cv = tmp.querySelector('canvas');
+  return cv ? cv.toDataURL('image/png') : ((tmp.querySelector('img') || {}).src || '');
+}
+
+function imprimirFichas(){
+  const url = portalURL();
+  if (!url) { alert('Publique esta disciplina no portal antes de imprimir as fichas.'); return; }
+  if (typeof QRCode === 'undefined') { alert('A biblioteca de QR code não carregou. Verifique a conexão.'); return; }
+  const disc = state.disciplinas.find(d => d.id === ctx.discId);
+  const nomeDisc = disc ? `${disc.codigo} · ${disc.nome}${disc.sufixo ? ' — ' + disc.sufixo : ''}` : '';
+  const fichas = [];
+  Object.entries(ctxTurmas()).forEach(([tid, t]) => t.alunos.forEach(a => {
+    const cod = codigoAluno(a.matricula);
+    const pessoal = `${url}#m=${encodeURIComponent(a.matricula)}&c=${cod}`;
+    fichas.push(`<div class="ficha">
+      <div class="t">Portal do Aluno — notas</div>
+      <div class="d">${nomeDisc}<br>${ctx.ano}.${ctx.semestre} · Turma ${tid}</div>
+      <div class="n">${a.nome}</div>
+      <img src="${_qrDataURL(pessoal, 240)}" alt="QR code">
+      <div class="c">Matrícula <b>${a.matricula}</b><br>Código <b class="k">${cod}</b></div>
+      <div class="i">Escaneie para ver suas notas. Código pessoal: não compartilhe.</div>
+    </div>`);
+  }));
+  saveAll();
+  if (!fichas.length) { alert('Nenhum aluno nesta disciplina/semestre.'); return; }
+  const w = window.open('', '_blank');
+  if (!w) { alert('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Fichas de acesso — ${nomeDisc} ${ctx.ano}.${ctx.semestre}</title>
+<style>
+  @page { size: A4; margin: 8mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color:#000; margin:0; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); }
+  .ficha { border:1px dashed #888; height:92mm; padding:6px 8px; text-align:center;
+           break-inside:avoid; page-break-inside:avoid; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
+  .t { font-weight:700; font-size:11px; }
+  .d { font-size:9px; color:#333; }
+  .n { font-size:10px; font-weight:700; }
+  img { width:34mm; height:34mm; }
+  .c { font-size:11px; line-height:1.5; }
+  .k { font-family:'Courier New',monospace; font-size:15px; letter-spacing:2px; }
+  .i { font-size:8px; color:#444; }
+</style></head><body><div class="grid">${fichas.join('')}</div>
+<script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };<\/script>
+</body></html>`);
+  w.document.close();
+}
+
+// ══════════════════════════════════════════════════════════
 //  TABS / MODAL / TOAST / UTIL
 // ══════════════════════════════════════════════════════════
 function switchTab(name, btn) {
@@ -2072,6 +2344,7 @@ function switchTab(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'relatorio') renderRelatorio();
   if (name === 'analytics') renderAnalytics();
+  if (name === 'portal')    renderPortal();
   if (name === 'config')    renderConfig();
   if (name === 'importar')  renderAlunosMgr();
 }
