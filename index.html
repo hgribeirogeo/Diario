@@ -2528,6 +2528,8 @@ function salvarVinculos(){
 }
 
 function gerarChaveEmail(){
+  const atual = (localStorage.getItem('diarioprof_mail_key') || '').trim();
+  if (atual && !confirm('Já existe uma chave configurada.\n\nGerar outra exige colar o código de novo no Apps Script e publicar uma nova versão da implantação. Continuar?')) return;
   const r = crypto.getRandomValues(new Uint8Array(24));
   const k = Array.from(r, b => COD_ALFABETO[b % 32]).join('');
   document.getElementById('mail-key').value = k;
@@ -2561,7 +2563,11 @@ async function testarEmail(){
     const r = await _postScript({ teste: true });
     log.innerHTML = r.ok
       ? `<span style="color:var(--accent2)">✓ Conectado. Cota restante hoje: ${r.cota} e-mail(s).</span>`
-      : `<span style="color:var(--danger)">⚠ ${_esc(r.erro)}</span>`;
+      : (r.erro === 'chave inválida'
+        ? `<span style="color:var(--danger)">⚠ Chave inválida: a chave deste navegador não confere com a do Apps Script.</span><br>
+           Corrija assim: clique em <b>📋 Copiar código do Apps Script</b>, cole no editor do script, salve e publique em
+           <b>Implantar → Gerenciar implantações → ✏ → Nova versão</b>. Não clique em Gerar.`
+        : `<span style="color:var(--danger)">⚠ ${_esc(r.erro)}</span>`);
   } catch (e) { log.innerHTML = `<span style="color:var(--danger)">⚠ Falha: ${_esc(e.message)}</span>`; }
 }
 
