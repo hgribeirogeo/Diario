@@ -2612,23 +2612,50 @@ function _mailtoAluno(mat){
   return `mailto:${p.emails[mat]}?subject=${encodeURIComponent(m.assunto)}&body=${encodeURIComponent(m.texto)}`;
 }
 
+// Registro de envios por disciplina/semestre (v1.3.2).
+// Migra o registro antigo (global por matrícula) para as disciplinas publicadas que contêm cada aluno.
+function _envCtx(){
+  const p = portalCfg();
+  if (!p.enviadosPor) {
+    p.enviadosPor = {};
+    const antigo = p.enviados || {};
+    Object.keys(p.publicados || {}).forEach(k => {
+      const [discId, sk] = k.split('|');
+      const turmas = state.dados?.[discId]?.[sk]?.turmas || {};
+      const mats = new Set(Object.values(turmas).flatMap(t => (t.alunos || []).map(a => a.matricula)));
+      Object.keys(antigo).forEach(m => { if (mats.has(m)) (p.enviadosPor[k] = p.enviadosPor[k] || {})[m] = antigo[m]; });
+    });
+    delete p.enviados;
+  }
+  const k = portalKey();
+  if (!p.enviadosPor[k]) p.enviadosPor[k] = {};
+  return p.enviadosPor[k];
+}
+
 function marcarEnviadoManual(mat){
-  const p = portalCfg(); if (!p.enviados) p.enviados = {};
-  p.enviados[mat] = new Date().toISOString();
+  _envCtx()[mat] = new Date().toISOString();
   saveAll(); setTimeout(renderPortal, 300);
 }
 
 async function enviarCodigosEmail(){
-  const p = portalCfg(); if (!p.emails) p.emails = {}; if (!p.enviados) p.enviados = {};
+  const p = portalCfg(); if (!p.emails) p.emails = {}; const env = _envCtx();
   const log = document.getElementById('mail-log');
   if (!localStorage.getItem('diarioprof_mail_url') || !localStorage.getItem('diarioprof_mail_key')) {
     alert('Informe a URL do App da Web e a chave secreta (veja as instruções no código do Apps Script).'); return;
   }
   const so = document.getElementById('mail-so-pendentes').checked;
   const todos = _alunosCtx();
-  const alvo = todos.filter(a => p.emails[a.matricula] && (!so || !p.enviados[a.matricula]));
+  const alvo = todos.filter(a => p.emails[a.matricula] && (!so || !env[a.matricula]));
   const semEmail = todos.filter(a => !p.emails[a.matricula]).length;
-  if (!alvo.length) { toast(so ? 'Todos os alunos com e-mail já receberam o código.' : 'Nenhum aluno com e-mail vinculado.'); return; }
+  const comEmail = todos.filter(a => p.emails[a.matricula]).length;
+  if (!comEmail) {
+    alert('Nenhum aluno desta disciplina tem e-mail vinculado.\n\nCole a lista de e-mails, clique em \u201cLocalizar alunos\u201d, confira a tabela e clique em \u201cSalvar vínculos\u201d.');
+    return;
+  }
+  if (!alvo.length) {
+    alert(`Os ${comEmail} aluno(s) com e-mail vinculado já constam como enviados.\nPara reenviar, desmarque \u201cSomente quem ainda não recebeu\u201d.`);
+    return;
+  }
   if (!confirm(`Enviar o código de acesso para ${alvo.length} aluno(s)?` +
                (semEmail ? `\n${semEmail} aluno(s) sem e-mail vinculado ficarão de fora.` : '') +
                `\n\nAntes do envio, o portal será republicado para garantir que todos os códigos estejam ativos.`)) return;
@@ -2648,7 +2675,7 @@ async function enviarCodigosEmail(){
       const r = await _postScript({ remetente: 'Prof. Hugo José Ribeiro', mensagens: lote });
       if (!r.ok) throw new Error(r.erro || 'falha no Apps Script');
       r.resultados.forEach(x => {
-        if (x.ok) { ok++; p.enviados[x.mat] = new Date().toISOString(); }
+        if (x.ok) { ok++; env[x.mat] = new Date().toISOString(); }
         else falhas.push(`${x.mat}: ${x.erro}`);
       });
     } catch (e) { falhas.push(`Lote interrompido (${e.message}). Reenvie: os já enviados ficam registrados.`); break; }
@@ -2661,7 +2688,7 @@ async function enviarCodigosEmail(){
 function _celulaEmail(mat){
   const p = portalCfg(); const e = p.emails && p.emails[mat];
   if (!e) return '<span style="color:var(--muted)">—</span>';
-  const env  = p.enviados && p.enviados[mat];
+  const env  = _envCtx()[mat];
   const href = _mailtoAluno(mat);
   return `${_esc(e)}${env ? ` <span title="Enviado em ${new Date(env).toLocaleString('pt-BR')}" style="color:var(--accent2);font-weight:700">✓</span>` : ''}` +
     (href ? ` <a href="${href}" onclick="marcarEnviadoManual('${mat}')" title="Abrir no seu programa de e-mail" style="text-decoration:none;margin-left:4px">✉</a>` : '');
