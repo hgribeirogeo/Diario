@@ -667,11 +667,99 @@
     <div class="card">
       <div class="card-title">Códigos de acesso — <span id="portal-ctx"></span></div>
       <div class="table-wrap"><table>
-        <thead><tr><th style="text-align:left">Matrícula</th><th style="text-align:left">Nome</th><th>Turma</th><th>Código</th><th></th></tr></thead>
+        <thead><tr><th style="text-align:left">Matrícula</th><th style="text-align:left">Nome</th><th>Turma</th><th>Código</th><th style="text-align:left">E-mail</th><th></th></tr></thead>
         <tbody id="portal-tbody"></tbody>
       </table></div>
     </div>
   </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">✉ Envio dos códigos por e-mail</div>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin-bottom:10px">
+      <b style="color:var(--text)">1.</b> Cole a lista de e-mails e clique em <b style="color:var(--text)">Localizar alunos</b>.
+      <b style="color:var(--text)">2.</b> Confira os vínculos (os marcados para verificação exigem atenção) e clique em <b style="color:var(--text)">Salvar vínculos</b>.
+      <b style="color:var(--text)">3.</b> Envie pela sua conta Google ou um a um pelo ✉ da tabela de códigos.
+    </p>
+    <textarea id="email-lista" class="annotation" style="min-height:80px" placeholder="aluno1@discente.ufg.br ; aluno2@discente.ufg.br ; ..."></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="localizarEmails()">🔎 Localizar alunos</button>
+      <button class="btn btn-success btn-sm" id="btn-salvar-vinc" onclick="salvarVinculos()" style="display:none">💾 Salvar vínculos</button>
+    </div>
+    <div id="email-vinc" style="margin-top:12px"></div>
+
+    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+      <div class="card-title" style="margin-bottom:8px">Envio automático pela sua conta Google (Apps Script)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;max-width:960px">
+        <label style="font-size:.78rem;color:var(--muted)">URL do App da Web
+          <input type="text" id="mail-url" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;margin-top:4px"
+                 oninput="localStorage.setItem('diarioprof_mail_url',this.value.trim())">
+        </label>
+        <label style="font-size:.78rem;color:var(--muted)">Chave secreta (a mesma do script)
+          <span style="display:flex;gap:6px;margin-top:4px">
+            <input type="text" id="mail-key" style="flex:1;font-family:monospace"
+                   oninput="localStorage.setItem('diarioprof_mail_key',this.value.trim())">
+            <button class="btn btn-ghost btn-sm" onclick="gerarChaveEmail()">Gerar</button>
+          </span>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="copiarAppsScript()">📋 Copiar código do Apps Script</button>
+        <button class="btn btn-ghost btn-sm" onclick="testarEmail()">🔌 Testar conexão</button>
+        <label style="font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="mail-so-pendentes" checked style="accent-color:var(--accent)"> Somente quem ainda não recebeu
+        </label>
+        <button class="btn btn-primary btn-sm" onclick="enviarCodigosEmail()">✉ Enviar códigos</button>
+      </div>
+      <div id="mail-log" style="font-size:.8rem;color:var(--muted);margin-top:10px"></div>
+    </div>
+  </div>
+  <script type="text/plain" id="apps-script-src">
+/**
+ * DiárioProf — envio dos códigos do Portal do Aluno
+ *
+ * 1. Em CHAVE, cole a chave gerada no DiárioProf (aba Portal do Aluno → Gerar).
+ * 2. Implantar → Nova implantação → Tipo: App da Web
+ *      Executar como: Eu
+ *      Quem pode acessar: Qualquer pessoa
+ * 3. Autorize o envio de e-mails e cole a URL do App da Web no DiárioProf.
+ *
+ * Os e-mails saem da sua própria conta Google. Sem a CHAVE, ninguém consegue usar este serviço.
+ */
+const CHAVE = 'COLE_AQUI_A_CHAVE';
+const DOMINIO_PERMITIDO = 'discente.ufg.br';   // deixe '' para aceitar qualquer domínio
+
+function doPost(e) {
+  let req;
+  try { req = JSON.parse(e.postData.contents); }
+  catch (err) { return resp({ ok: false, erro: 'requisição inválida' }); }
+  if (!req.chave || req.chave !== CHAVE) return resp({ ok: false, erro: 'chave inválida' });
+  if (req.teste) return resp({ ok: true, cota: MailApp.getRemainingDailyQuota() });
+
+  const resultados = (req.mensagens || []).map(function (m) {
+    try {
+      const para = String(m.para || '').trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) throw new Error('e-mail inválido');
+      if (DOMINIO_PERMITIDO && !para.endsWith('@' + DOMINIO_PERMITIDO)) throw new Error('domínio não permitido');
+      MailApp.sendEmail({
+        to: para,
+        subject: String(m.assunto || ''),
+        body: String(m.texto || ''),
+        htmlBody: String(m.html || m.texto || ''),
+        name: String(req.remetente || 'DiárioProf')
+      });
+      return { mat: m.mat, ok: true };
+    } catch (err) {
+      return { mat: m.mat, ok: false, erro: String((err && err.message) || err) };
+    }
+  });
+  return resp({ ok: true, resultados: resultados, cota: MailApp.getRemainingDailyQuota() });
+}
+
+function doGet() { return resp({ ok: true, servico: 'DiárioProf — envio de códigos' }); }
+
+function resp(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+  </script>
 </section>
 
 <!-- ══ CONFIG ══ -->
@@ -2224,9 +2312,11 @@ async function publicarPortal(incluir){
     log.innerHTML = `<span style="color:var(--accent2)">✓ Portal atualizado: ${mats.length} aluno(s), ${Object.keys(p.publicados).length} disciplina(s) publicada(s).</span>
       O GitHub pode levar alguns minutos para refletir a atualização.`;
     renderPortal();
+    return true;
   } catch (e) {
     if (anterior) p.publicados[chave] = anterior; else delete p.publicados[chave];
     log.innerHTML = `<span style="color:var(--danger)">⚠ Falha ao publicar: ${e.message}</span>`;
+    return false;
   }
 }
 
@@ -2262,10 +2352,14 @@ function renderPortal(){
     if (!p.codigos[a.matricula]) { p.codigos[a.matricula] = gerarCodigo(); novos = true; }
     rows.push(`<tr><td>${a.matricula}</td><td>${a.nome}</td><td style="text-align:center">${tid}</td>
       <td style="text-align:center;font-family:monospace;font-weight:700;letter-spacing:.12em;color:var(--accent)">${p.codigos[a.matricula]}</td>
+      <td style="font-size:.75rem;white-space:nowrap">${_celulaEmail(a.matricula)}</td>
       <td style="text-align:center"><button class="btn btn-ghost btn-sm" title="Gerar novo código" onclick="regenerarCodigo('${a.matricula}')">↻</button></td></tr>`);
   }));
   document.getElementById('portal-tbody').innerHTML = rows.join('') ||
-    '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">Nenhum aluno nesta disciplina/semestre.</td></tr>';
+    '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Nenhum aluno nesta disciplina/semestre.</td></tr>';
+  const mu = document.getElementById('mail-url'), mk = document.getElementById('mail-key');
+  if (mu && !mu.value) mu.value = localStorage.getItem('diarioprof_mail_url') || '';
+  if (mk && !mk.value) mk.value = localStorage.getItem('diarioprof_mail_key') || '';
   if (novos) saveAll();
 }
 
@@ -2332,6 +2426,245 @@ function imprimirFichas(){
 <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };<\/script>
 </body></html>`);
   w.document.close();
+}
+
+// ── Algoritmo de pareamento e-mail → aluno (mesmo código que irá para o DiárioProf) ──
+const _STOP = new Set(['de','da','do','das','dos','e']);
+function _norm(s){ return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function _tokNome(nome){ return _norm(nome).split(/[^a-z]+/).filter(t => t.length >= 2 && !_STOP.has(t)); }
+function _scoreEmail(email, nome){
+  const local = _norm(email.split('@')[0]);
+  const etoks = local.split(/[^a-z]+/).filter(t => t.length >= 3);
+  const conc  = local.replace(/[^a-z]/g, '');
+  const ntoks = _tokNome(nome);
+  let s = 0;
+  ntoks.forEach((t, i) => {
+    let p = 0;
+    if (etoks.includes(t)) p = 3;                       // token idêntico
+    else if (t.length >= 4 && conc.includes(t)) p = 2;  // contido no e-mail colado (ex.: rochapaes)
+    if (p && i === 0) p += 1;                           // bônus para o primeiro nome
+    s += p;
+  });
+  return s;
+}
+// Atribuição 1-para-1 gulosa pelas maiores pontuações
+function parearEmails(emails, alunos){
+  const pares = [];
+  emails.forEach((e, ei) => alunos.forEach((a, ai) => { const s = _scoreEmail(e, a.nome); if (s > 0) pares.push({ ei, ai, s }); }));
+  pares.sort((x, y) => y.s - x.s);
+  const usadoE = new Set(), usadoA = new Set(), res = emails.map(e => ({ email: e, mat: null, score: 0, conf: 'nenhuma' }));
+  pares.forEach(p => {
+    if (usadoE.has(p.ei) || usadoA.has(p.ai)) return;
+    usadoE.add(p.ei); usadoA.add(p.ai);
+    const r = res[p.ei]; r.mat = alunos[p.ai].matricula; r.score = p.s;
+    const seg = pares.filter(q => q.ei === p.ei && q.ai !== p.ai).reduce((m, q) => Math.max(m, q.s), 0);
+    r.conf = (p.s >= 4 && p.s - seg >= 2) ? 'alta' : 'verificar';
+  });
+  return res;
+}
+
+// ══════════════════════════════════════════════════════════
+//  PORTAL — ENVIO DE CÓDIGOS POR E-MAIL (v1.3)
+// ══════════════════════════════════════════════════════════
+let _vincTemp = null;
+function _esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _alunosCtx(){ return Object.entries(ctxTurmas()).flatMap(([tid, t]) => t.alunos.map(a => ({ ...a, turma: tid }))); }
+
+function localizarEmails(){
+  const txt = document.getElementById('email-lista').value;
+  const emails = [...new Set((txt.match(/[^\s;,<>()"']+@[^\s;,<>()"']+/g) || []).map(e => e.toLowerCase()))];
+  if (!emails.length) { toast('Nenhum e-mail encontrado no texto.'); return; }
+  const alunos = _alunosCtx();
+  if (!alunos.length) { toast('Nenhum aluno nesta disciplina/semestre.'); return; }
+  _vincTemp = parearEmails(emails, alunos);
+  renderVinculos();
+}
+
+function renderVinculos(){
+  const div = document.getElementById('email-vinc');
+  if (!_vincTemp) { div.innerHTML = ''; document.getElementById('btn-salvar-vinc').style.display = 'none'; return; }
+  const alunos = _alunosCtx();
+  const opts = sel => '<option value="">— nenhum —</option>' + alunos.map(a =>
+    `<option value="${a.matricula}" ${a.matricula === sel ? 'selected' : ''}>${_esc(a.nome)} (${a.matricula})</option>`).join('');
+  const cont = {}; _vincTemp.forEach(v => { if (v.mat) cont[v.mat] = (cont[v.mat] || 0) + 1; });
+  const dup = new Set(Object.keys(cont).filter(m => cont[m] > 1));
+  const rows = _vincTemp.map((v, i) => {
+    const st = dup.has(v.mat) ? ['duplicado', 'var(--danger)']
+             : v.conf === 'alta' ? ['ok', 'var(--accent2)']
+             : v.conf === 'manual' ? ['manual', 'var(--accent)']
+             : v.mat ? ['verificar', 'var(--warn)'] : ['sem par', 'var(--danger)'];
+    return `<tr><td>${_esc(v.email)}</td>
+      <td><select class="form-sel" style="width:100%"
+        onchange="_vincTemp[${i}].mat=this.value||null;_vincTemp[${i}].conf=this.value?'manual':'nenhuma';renderVinculos()">${opts(v.mat)}</select></td>
+      <td style="text-align:center;color:${st[1]};font-weight:700;font-size:.75rem">${st[0]}</td></tr>`;
+  }).join('');
+  const semEmail = alunos.filter(a => !_vincTemp.some(v => v.mat === a.matricula));
+  const nVer = _vincTemp.filter(v => v.mat && v.conf === 'verificar').length;
+  div.innerHTML = `
+    <div style="font-size:.8rem;margin-bottom:8px">
+      ${_vincTemp.length} e-mail(s) · ${_vincTemp.filter(v => v.mat).length} vinculado(s)
+      ${nVer ? `· <span style="color:var(--warn);font-weight:700">${nVer} para verificar</span>` : ''}
+      ${dup.size ? `· <span style="color:var(--danger);font-weight:700">${dup.size} aluno(s) com mais de um e-mail</span>` : ''}
+    </div>
+    <div class="table-wrap" style="max-height:420px;overflow-y:auto"><table>
+      <thead><tr><th style="text-align:left">E-mail</th><th style="text-align:left">Aluno</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    ${semEmail.length ? `<div style="font-size:.78rem;color:var(--warn);margin-top:8px">Sem e-mail na lista: ${semEmail.map(a => _esc(a.nome)).join(', ')}</div>` : ''}`;
+  document.getElementById('btn-salvar-vinc').style.display = '';
+}
+
+function salvarVinculos(){
+  if (!_vincTemp) return;
+  const cont = {}; _vincTemp.forEach(v => { if (v.mat) cont[v.mat] = (cont[v.mat] || 0) + 1; });
+  if (Object.values(cont).some(n => n > 1)) { alert('Há aluno vinculado a mais de um e-mail. Corrija antes de salvar.'); return; }
+  const nVer = _vincTemp.filter(v => v.mat && v.conf === 'verificar').length;
+  if (nVer && !confirm(`${nVer} vínculo(s) estão marcados para verificação. Você conferiu? Salvar mesmo assim?`)) return;
+  const p = portalCfg(); if (!p.emails) p.emails = {};
+  let n = 0;
+  _vincTemp.forEach(v => { if (v.mat) { p.emails[v.mat] = v.email; n++; } });
+  _vincTemp = null; renderVinculos();
+  saveAll(); renderPortal();
+  toast(`${n} vínculo(s) salvos.`);
+}
+
+function gerarChaveEmail(){
+  const r = crypto.getRandomValues(new Uint8Array(24));
+  const k = Array.from(r, b => COD_ALFABETO[b % 32]).join('');
+  document.getElementById('mail-key').value = k;
+  localStorage.setItem('diarioprof_mail_key', k);
+  toast('Chave gerada. Use “Copiar código do Apps Script”: ela já vai embutida.');
+}
+
+function copiarAppsScript(){
+  const k = (localStorage.getItem('diarioprof_mail_key') || '').trim();
+  let src = document.getElementById('apps-script-src').textContent.trim();
+  if (k) src = src.replace("'COLE_AQUI_A_CHAVE'", `'${k}'`);
+  navigator.clipboard.writeText(src).then(
+    () => toast(k ? 'Código copiado com a sua chave embutida.' : 'Código copiado. Gere uma chave e cole-a em CHAVE.'),
+    () => prompt('Copie o código:', src));
+}
+
+async function _postScript(payload){
+  const url = (localStorage.getItem('diarioprof_mail_url') || '').trim();
+  const key = (localStorage.getItem('diarioprof_mail_key') || '').trim();
+  if (!url || !key) throw new Error('informe a URL do App da Web e a chave secreta');
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                               body: JSON.stringify({ ...payload, chave: key }) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function testarEmail(){
+  const log = document.getElementById('mail-log');
+  log.textContent = '🔌 Testando...';
+  try {
+    const r = await _postScript({ teste: true });
+    log.innerHTML = r.ok
+      ? `<span style="color:var(--accent2)">✓ Conectado. Cota restante hoje: ${r.cota} e-mail(s).</span>`
+      : `<span style="color:var(--danger)">⚠ ${_esc(r.erro)}</span>`;
+  } catch (e) { log.innerHTML = `<span style="color:var(--danger)">⚠ Falha: ${_esc(e.message)}</span>`; }
+}
+
+function _montarMensagem(a, cod, url){
+  const disc = state.disciplinas.find(d => d.id === ctx.discId) || {};
+  const nomeDisc = `${disc.codigo} · ${disc.nome}${disc.sufixo ? ' — ' + disc.sufixo : ''}`;
+  const sem = `${ctx.ano}.${ctx.semestre}`;
+  const pessoal = `${url}#m=${encodeURIComponent(a.matricula)}&c=${cod}`;
+  const pn = (a.nome || '').split(' ')[0] || '';
+  const primeiro = pn.charAt(0) + pn.slice(1).toLowerCase();
+  const assunto = `Acesso às suas notas — ${disc.codigo} ${disc.nome} (${sem})`;
+  const texto =
+`Olá, ${primeiro}!
+
+Suas notas de ${nomeDisc} (${sem}) estão disponíveis no Portal do Aluno.
+
+Matrícula: ${a.matricula}
+Código de acesso: ${cod}
+
+Acesso direto (entra com seus dados):
+${pessoal}
+
+Ou acesse ${url} e digite a matrícula e o código.
+
+O código é pessoal e abre somente as notas da sua matrícula. Não o compartilhe.
+As notas são atualizadas no portal ao longo do semestre, à medida que forem lançadas.
+
+Prof. Hugo José Ribeiro
+EECA/UFG`;
+  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13243A;line-height:1.5;max-width:520px">
+<p>Olá, ${_esc(primeiro)}!</p>
+<p>Suas notas de <b>${_esc(nomeDisc)}</b> (${sem}) estão disponíveis no Portal do Aluno.</p>
+<p style="background:#EEF2F5;border-radius:8px;padding:12px 16px">Matrícula: <b>${a.matricula}</b><br>
+Código de acesso: <b style="font-family:'Courier New',monospace;font-size:18px;letter-spacing:3px">${cod}</b></p>
+<p><a href="${pessoal}" style="display:inline-block;background:#1F5FAE;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold">Ver minhas notas</a></p>
+<p style="font-size:13px;color:#5B6B7E">Se o botão não abrir, acesse <a href="${url}">${url}</a> e digite a matrícula e o código.</p>
+<p style="font-size:13px;color:#5B6B7E">O código é pessoal e abre somente as notas da sua matrícula. Não o compartilhe.
+As notas são atualizadas no portal ao longo do semestre, à medida que forem lançadas.</p>
+<p>Prof. Hugo José Ribeiro<br>EECA/UFG</p></div>`;
+  return { assunto, texto, html };
+}
+
+function _mailtoAluno(mat){
+  const p = portalCfg(), url = portalURL();
+  const a = _alunosCtx().find(x => x.matricula === mat);
+  if (!a || !url || !p.emails?.[mat]) return '';
+  const m = _montarMensagem(a, codigoAluno(mat), url);
+  return `mailto:${p.emails[mat]}?subject=${encodeURIComponent(m.assunto)}&body=${encodeURIComponent(m.texto)}`;
+}
+
+function marcarEnviadoManual(mat){
+  const p = portalCfg(); if (!p.enviados) p.enviados = {};
+  p.enviados[mat] = new Date().toISOString();
+  saveAll(); setTimeout(renderPortal, 300);
+}
+
+async function enviarCodigosEmail(){
+  const p = portalCfg(); if (!p.emails) p.emails = {}; if (!p.enviados) p.enviados = {};
+  const log = document.getElementById('mail-log');
+  if (!localStorage.getItem('diarioprof_mail_url') || !localStorage.getItem('diarioprof_mail_key')) {
+    alert('Informe a URL do App da Web e a chave secreta (veja as instruções no código do Apps Script).'); return;
+  }
+  const so = document.getElementById('mail-so-pendentes').checked;
+  const todos = _alunosCtx();
+  const alvo = todos.filter(a => p.emails[a.matricula] && (!so || !p.enviados[a.matricula]));
+  const semEmail = todos.filter(a => !p.emails[a.matricula]).length;
+  if (!alvo.length) { toast(so ? 'Todos os alunos com e-mail já receberam o código.' : 'Nenhum aluno com e-mail vinculado.'); return; }
+  if (!confirm(`Enviar o código de acesso para ${alvo.length} aluno(s)?` +
+               (semEmail ? `\n${semEmail} aluno(s) sem e-mail vinculado ficarão de fora.` : '') +
+               `\n\nAntes do envio, o portal será republicado para garantir que todos os códigos estejam ativos.`)) return;
+
+  // Garante que os códigos enviados já estão publicados (códigos novos ou regenerados)
+  log.textContent = '🔐 Atualizando o portal antes do envio...';
+  const publicado = await publicarPortal(true);
+  const url = portalURL();
+  if (!publicado || !url) { log.innerHTML = '<span style="color:var(--danger)">⚠ Envio cancelado: não foi possível publicar o portal.</span>'; return; }
+
+  const msgs = alvo.map(a => ({ mat: a.matricula, para: p.emails[a.matricula], ..._montarMensagem(a, codigoAluno(a.matricula), url) }));
+  let ok = 0; const falhas = [];
+  for (let i = 0; i < msgs.length; i += 20) {
+    const lote = msgs.slice(i, i + 20);
+    log.textContent = `✉ Enviando ${i + 1}–${i + lote.length} de ${msgs.length}...`;
+    try {
+      const r = await _postScript({ remetente: 'Prof. Hugo José Ribeiro', mensagens: lote });
+      if (!r.ok) throw new Error(r.erro || 'falha no Apps Script');
+      r.resultados.forEach(x => {
+        if (x.ok) { ok++; p.enviados[x.mat] = new Date().toISOString(); }
+        else falhas.push(`${x.mat}: ${x.erro}`);
+      });
+    } catch (e) { falhas.push(`Lote interrompido (${e.message}). Reenvie: os já enviados ficam registrados.`); break; }
+  }
+  saveAll(); renderPortal();
+  log.innerHTML = `<span style="color:var(--accent2);font-weight:700">✓ ${ok} e-mail(s) enviado(s).</span>` +
+    (falhas.length ? `<br><span style="color:var(--danger)">⚠ ${falhas.length} falha(s):</span><br>${falhas.map(_esc).join('<br>')}` : '');
+}
+
+function _celulaEmail(mat){
+  const p = portalCfg(); const e = p.emails && p.emails[mat];
+  if (!e) return '<span style="color:var(--muted)">—</span>';
+  const env  = p.enviados && p.enviados[mat];
+  const href = _mailtoAluno(mat);
+  return `${_esc(e)}${env ? ` <span title="Enviado em ${new Date(env).toLocaleString('pt-BR')}" style="color:var(--accent2);font-weight:700">✓</span>` : ''}` +
+    (href ? ` <a href="${href}" onclick="marcarEnviadoManual('${mat}')" title="Abrir no seu programa de e-mail" style="text-decoration:none;margin-left:4px">✉</a>` : '');
 }
 
 // ══════════════════════════════════════════════════════════
