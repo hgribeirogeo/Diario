@@ -145,6 +145,11 @@
   .sim-grid input { padding: 8px; font-size: 1rem; }
   .sim-grid input.erro { border-color: var(--bad); }
   .sim-out { margin-top: 10px; font-size: .95rem; }
+  .chamada { border: 2px solid var(--blue); }
+  .ch-tit { font-weight: 700; font-size: 1.05rem; }
+  .ch-hor { color: var(--soft); font-size: .88rem; margin-top: 2px; }
+  .ch-msg { margin-top: 10px; font-weight: 700; }
+  .ch-msg.ok { color: var(--ok); } .ch-msg.err { color: var(--bad); }
   @media (max-width: 340px) { .gauges { grid-template-columns: 1fr; } }
 
   .grades { margin-top: 18px; }
@@ -237,6 +242,8 @@
     else { OWNER = localStorage.getItem('portal_u'); GIST = localStorage.getItem('portal_g'); }
   } catch (e) {}
   let _doCache = false;
+  const PCH = qs.get('p');                 // QR da chamada: disciplina~semestre~turma
+  let _cred = null, _chamURL = null;
   const te = new TextEncoder(), td = new TextDecoder();
   const $ = id => document.getElementById(id);
 
@@ -294,6 +301,8 @@
         dados = JSON.parse(td.decode(pt));
       } catch (e) { erro(falha); return; }
       mostrar(dados, arq.atualizado, cod);
+      _cred = { mat, cod }; _chamURL = arq.chamada || null;
+      _renderChamada(dados);
       try {
         if ($('lembrar').checked) localStorage.setItem('portal_cred', JSON.stringify({ m: mat, c: cod }));
         else localStorage.removeItem('portal_cred');
@@ -470,6 +479,45 @@
       : `Média final simulada: <b style="color:${atinge ? 'var(--ok)' : 'var(--bad)'}">${n2(mf)}</b> · ${atinge ? 'atinge 6,0' : 'abaixo de 6,0'}<br><small>A simulação não considera a frequência.</small>`;
   }
   document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('sim-in')) _simular(+e.target.dataset.card); });
+
+  // ── Chamada da aula prática ──
+  function _agoraLocal() {
+    const d = new Date(), g = d.getDay();
+    return { dow: g === 0 ? 7 : g, hm: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') };
+  }
+  const _DS = ['', 'segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados', 'domingos'];
+  let _chamadas = [];
+  function _renderChamada(d) {
+    document.getElementById('chamada-box')?.remove();
+    if (!_chamURL) return;
+    const a = _agoraLocal();
+    _chamadas = (d.disciplinas || []).filter(x => x.chamada).map(x => ({ ...x.chamada, disciplina: x.disciplina }))
+      .filter(ch => (ch.dias.includes(a.dow) && a.hm >= ch.ini && a.hm <= ch.fim) || PCH === `${ch.disc}~${ch.sem}~${ch.turma}`);
+    if (!_chamadas.length) return;
+    const box = document.createElement('div'); box.id = 'chamada-box';
+    box.innerHTML = _chamadas.map((ch, i) => `<div class="panel chamada">
+      <div class="ch-tit">Aula prática · ${esc(String(ch.disciplina).split(' · ')[0])} · turma ${esc(ch.turma)}</div>
+      <div class="ch-hor">Chamada aberta nas ${ch.dias.map(x => _DS[x]).join(' e ')}, das ${esc(ch.ini)} às ${esc(ch.fim)}</div>
+      <button class="primary" type="button" id="ch-btn-${i}">Registrar presença</button>
+      <div class="ch-msg" id="ch-msg-${i}" role="status" aria-live="polite"></div></div>`).join('');
+    $('res').prepend(box);
+    _chamadas.forEach((ch, i) => { $('ch-btn-' + i).onclick = () => _registrarPresenca(i); });
+  }
+  async function _registrarPresenca(i) {
+    const ch = _chamadas[i], btn = $('ch-btn-' + i), msg = $('ch-msg-' + i);
+    btn.disabled = true; btn.textContent = 'Registrando…'; msg.className = 'ch-msg'; msg.textContent = '';
+    try {
+      const r = await fetch(_chamURL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ acao: 'presenca', disc: ch.disc, sem: ch.sem, turma: ch.turma, mat: _cred.mat, cod: _cred.cod, ts: new Date().toISOString() }) });
+      const j = await r.json();
+      if (j.status === 'registrado') { msg.className = 'ch-msg ok'; msg.textContent = `✓ Presença registrada às ${j.hora}.`; btn.textContent = 'Presença registrada'; return; }
+      if (j.status === 'duplicado') { msg.className = 'ch-msg ok'; msg.textContent = '✓ Sua presença de hoje já estava registrada.'; btn.textContent = 'Presença registrada'; return; }
+      msg.className = 'ch-msg err'; msg.textContent = j.erro || 'Não foi possível registrar.';
+    } catch (e) {
+      msg.className = 'ch-msg err'; msg.textContent = navigator.onLine === false ? 'Sem internet. Conecte-se e tente de novo.' : 'O servidor da chamada não respondeu. Tente de novo.';
+    }
+    btn.disabled = false; btn.textContent = 'Registrar presença';
+  }
 
   function sair() {
     try { localStorage.removeItem('portal_cred'); } catch (e) {}

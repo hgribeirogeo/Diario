@@ -282,6 +282,16 @@
                   font-size: .84rem; line-height: 1.5; }
   .aviso-portal > span { flex: 1; min-width: 200px; }
   .aviso-portal b { color: var(--warn); }
+  .cc-tab td, .cc-tab th { text-align: center; padding: 3px 6px; font-size: .74rem; }
+  .cc-tab td:first-child, .cc-tab th:first-child { text-align: left; }
+  .cc-alt { background: #f0a03033; color: var(--warn); font-weight: 700; }
+  .cc-conf { background: #e0555530; color: var(--danger); font-weight: 700; }
+  .cc-pend { color: var(--muted); font-style: italic; }
+  .cc-sem { color: var(--muted); opacity: .7; }
+  .cc-nota { font-size: .76rem; color: var(--warn); margin: 4px 0; }
+  .cc-lista { font-size: .8rem; line-height: 1.6; margin-top: 8px; }
+  .cc-t-alt { color: var(--warn); font-weight: 700; } .cc-t-conf { color: var(--danger); font-weight: 700; }
+  #tab-diario h4 { margin: 12px 0 6px; font-size: .9rem; }
   .dc-prox { font-size: .72rem; color: var(--accent); margin: 2px 0 4px; }
   .dc-selo { display: inline-block; margin-left: 8px; font-size: .64rem; font-weight: 700; color: var(--warn);
              border: 1px solid var(--warn); border-radius: 20px; padding: 0 8px; letter-spacing: 0; text-transform: none; }
@@ -589,6 +599,172 @@
 
 <!-- ══ DIÁRIO ══ -->
 <section class="section" id="tab-diario">
+  <div class="card">
+    <div class="card-title">Chamada da aula prática (Portal do Aluno)</div>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin-bottom:10px">O aluno escaneia o QR da turma e toca em <b style="color:var(--text)">Registrar presença</b> no Portal, com o código pessoal. O servidor confere o código e a janela de horário pelo relógio dele.</p>
+    <label style="font-size:.78rem;color:var(--muted);display:block;margin-bottom:8px">URL do Apps Script da chamada
+      <input type="text" id="cham-url" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;margin-top:4px" oninput="setChamadaURL(this.value)"></label>
+    <div id="chamada-turmas" class="table-wrap"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn btn-ghost btn-sm" onclick="copiarScriptChamada()">📋 Copiar código do Apps Script</button>
+      <button class="btn btn-ghost btn-sm" onclick="testarChamada()">🔌 Testar</button>
+      <button class="btn btn-primary btn-sm" onclick="enviarConfigChamada()">Enviar configuração</button>
+      <button class="btn btn-ghost btn-sm" onclick="imprimirQRChamada()">🖨 Imprimir QR das turmas</button>
+      <button class="btn btn-success btn-sm" onclick="buscarRegistrosChamada()">⬇ Buscar registros</button>
+    </div>
+    <div id="cham-info" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
+    <div id="cham-log" style="font-size:.8rem;margin-top:4px"></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <span class="card-title" style="margin:0">Conciliação com o SIGAA</span><span style="flex:1"></span>
+      <button class="btn btn-primary btn-sm" onclick="renderConciliacao()">Gerar conciliação</button>
+      <button class="btn btn-ghost btn-sm" onclick="baixarConciliacaoCSV()">CSV</button>
+    </div>
+    <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:8px">Cruza o mapa do SIGAA importado (teoria) com os registros da prática e mostra o valor a lançar em cada data.</p>
+    <div id="conc-area"></div>
+  </div>
+  <script type="text/plain" id="chamada-script-src">
+/**
+ * DiárioProf — Chamada da aula prática pelo Portal do Aluno
+ * Substitui o script anterior. A aba "respostas" é mantida: os registros antigos continuam valendo.
+ *
+ * 1. Cole este código no projeto atual (apague o código antigo) e salve.
+ *    Se você copiou pelo DiárioProf, a CHAVE já vem preenchida.
+ * 2. Implantar → Gerenciar implantações → ✏ → Versão: Nova versão → Implantar (a URL continua a mesma).
+ * 3. No DiárioProf, aba Diário → Chamada da prática: cole a URL e clique em "Enviar configuração".
+ */
+const CHAVE = 'COLE_AQUI_A_CHAVE';
+const SPREADSHEET_ID = '19zhhPHu5v6UzW6is2E5fNU9YCTYb2HZC0s3hCLohD0U';
+const FUSO = 'America/Sao_Paulo';
+const CAB = ['data_aula', 'matricula', 'nome', 'turma', 'timestamp_aluno', 'timestamp_servidor', 'origem', 'disciplina', 'semestre'];
+const DIAS = ['', 'segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados', 'domingos'];
+
+function doGet(e)  { return tratar(e); }
+function doPost(e) { return tratar(e); }
+
+function tratar(e) {
+  let req = {};
+  try { if (e && e.postData && e.postData.contents) req = JSON.parse(e.postData.contents); } catch (err) {}
+  const p = (e && e.parameter) || {};
+  try {
+    if (req.acao === 'presenca')  return resp(registrarPortal(req));
+    if (req.acao === 'config')    return resp(salvarConfig(req));
+    if (req.acao === 'registros') return resp(listarRegistros(req));
+    if (req.acao === 'teste')     return resp(req.chave === CHAVE ? { ok: true, agora: agora().txt } : { ok: false, erro: 'chave inválida' });
+    if (p.matricula && p.date)    return resp(registrarLegado(p));          // QR antigo (uma folha por data)
+    return resp({ ok: true, servico: 'DiárioProf — chamada da prática', agora: agora().txt });
+  } catch (err) {
+    return resp({ ok: false, erro: String((err && err.message) || err) });
+  }
+}
+
+function resp(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+// Data e hora pelo relógio do servidor (o do celular não é confiável)
+function agora() {
+  const s = Utilities.formatDate(new Date(), FUSO, "yyyy-MM-dd'|'HH:mm'|'u").split('|');
+  return { data: s[0], hm: s[1], dow: Number(s[2]), txt: s[0] + ' ' + s[1] };
+}
+
+function planilha() { return SpreadsheetApp.openById(SPREADSHEET_ID); }
+function abaRespostas() {
+  const ss = planilha();
+  let a = ss.getSheetByName('respostas');
+  if (!a) { a = ss.insertSheet('respostas'); a.appendRow(CAB); a.setFrozenRows(1); }
+  const cab = a.getRange(1, 1, 1, CAB.length).getValues()[0];
+  if (cab[6] !== 'origem') a.getRange(1, 7, 1, 3).setValues([CAB.slice(6)]);   // acrescenta colunas novas, mantém as antigas
+  return a;
+}
+function abaConfig() {
+  const ss = planilha();
+  let a = ss.getSheetByName('chamada_config');
+  if (!a) { a = ss.insertSheet('chamada_config'); a.appendRow(['contexto', 'config_json', 'atualizado']); a.hideSheet(); }
+  return a;
+}
+function lerConfig(chaveCtx) {
+  const v = abaConfig().getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (v[i][0] === chaveCtx) return JSON.parse(v[i][1]);
+  return null;
+}
+
+function hex(bytes) { return bytes.map(b => ('0' + (b & 255).toString(16)).slice(-2)).join(''); }
+function verificador(salt, mat, cod) {
+  return hex(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + ':' + mat + ':' + String(cod).trim().toUpperCase(), Utilities.Charset.UTF_8));
+}
+function dataTxt(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, FUSO, 'yyyy-MM-dd');
+  const s = String(v).trim();
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? m[3] + '-' + m[2] + '-' + m[1] : s;
+}
+function jaRegistrado(aba, data, mat, turma, disc) {
+  const v = aba.getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) {
+    if (dataTxt(v[i][0]) === data && String(v[i][1]) === String(mat) && String(v[i][7] || '') === String(disc || '') &&
+        (disc ? String(v[i][3]) === String(turma) : true)) return true;
+  }
+  return false;
+}
+
+// ── Professor: envia turmas, horários e verificadores dos códigos (nunca os códigos) ──
+function salvarConfig(req) {
+  if (req.chave !== CHAVE) return { ok: false, erro: 'chave inválida' };
+  const aba = abaConfig(), v = aba.getDataRange().getValues();
+  (req.contextos || []).forEach(c => {
+    const k = c.disc + '|' + c.sem, linha = [k, JSON.stringify(c), new Date()];
+    let i = 1; while (i < v.length && v[i][0] !== k) i++;
+    if (i < v.length) aba.getRange(i + 1, 1, 1, 3).setValues([linha]); else { aba.appendRow(linha); v.push(linha); }
+  });
+  return { ok: true, agora: agora().txt };
+}
+
+// ── Aluno: registro pelo Portal, conferido por código e horário do servidor ──
+function registrarPortal(req) {
+  const cfg = lerConfig(req.disc + '|' + req.sem);
+  const t = cfg && cfg.turmas && cfg.turmas[req.turma];
+  if (!t) return { ok: false, status: 'sem_chamada', erro: 'A chamada desta turma não está configurada.' };
+  const mat = String(req.mat || '').replace(/\D/g, ''), aluno = t.alunos && t.alunos[mat];
+  if (!aluno) return { ok: false, status: 'nao_autorizado', erro: 'Esta matrícula não pertence a esta turma.' };
+  if (verificador(cfg.salt, mat, req.cod) !== aluno.v) return { ok: false, status: 'nao_autorizado', erro: 'Código de acesso incorreto.' };
+  const a = agora();
+  if (t.dias.indexOf(a.dow) < 0 || a.hm < t.ini || a.hm > t.fim) {
+    return { ok: false, status: 'fora_horario', erro: 'A chamada desta turma fica aberta nas ' + t.dias.map(d => DIAS[d]).join(' e ') + ', das ' + t.ini + ' às ' + t.fim + '.' };
+  }
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const aba = abaRespostas();
+    if (jaRegistrado(aba, a.data, mat, req.turma, req.disc)) return { ok: true, status: 'duplicado', data: a.data };
+    aba.appendRow([a.data, mat, aluno.n || '', req.turma, req.ts ? new Date(req.ts) : '', new Date(), 'portal', req.disc, req.sem]);
+    return { ok: true, status: 'registrado', data: a.data, hora: a.hm };
+  } finally { lock.releaseLock(); }
+}
+
+// ── QR antigo: continua funcionando, mas só no dia da aula pelo relógio do servidor ──
+function registrarLegado(p) {
+  const a = agora();
+  if (p.date !== a.data) return { status: 'fora_do_dia', message: 'Este QR Code não vale hoje.' };
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const aba = abaRespostas();
+    if (jaRegistrado(aba, p.date, p.matricula, p.turma, '')) return { status: 'duplicate' };
+    aba.appendRow([p.date, p.matricula, p.nome || '', p.turma || '', p.timestamp ? new Date(p.timestamp) : '', new Date(), 'qr_antigo', '', '']);
+    return { status: 'ok' };
+  } finally { lock.releaseLock(); }
+}
+
+// ── Professor: todos os registros, para o DiárioProf ──
+function listarRegistros(req) {
+  if (req.chave !== CHAVE) return { ok: false, erro: 'chave inválida' };
+  const v = abaRespostas().getDataRange().getValues(), out = [];
+  for (let i = 1; i < v.length; i++) {
+    if (!v[i][0] || !v[i][1]) continue;
+    out.push({ d: dataTxt(v[i][0]), m: String(v[i][1]).trim(), t: String(v[i][3] || '').trim(),
+               o: String(v[i][6] || 'qr_antigo'), disc: String(v[i][7] || ''), sem: String(v[i][8] || '') });
+  }
+  return { ok: true, registros: out, agora: agora().txt };
+}
+  </script>
   <div class="turma-selector" id="turma-sel-diario"></div>
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
     <span style="font-size:.82rem;color:var(--muted)">Conteúdo ministrado e observações por aula.</span>
@@ -2144,6 +2320,7 @@ function exportCSV() {
 //  DIÁRIO
 // ══════════════════════════════════════════════════════════
 function renderDiario() {
+  renderChamada();
   buildTurmaSelector('turma-sel-diario');
   const entries = ctxDiario()[ctx.turmaId] || [];
   const list    = document.getElementById('diario-list');
@@ -2890,7 +3067,9 @@ function _registrosContexto(discId, sk){
         freq: fr ? { faltasH: fr.faltasH, ch: fr.ch, pct: +fr.pct.toFixed(2), limiteH: fr.limiteH,
                      restanteH: fr.restanteH, importadoEm: fr.importadoEm } : null,
         aviso: dados.aviso && dados.aviso.texto ? { texto: dados.aviso.texto, em: dados.aviso.em } : null,
-        datas: dados.datas || {}, pesos: pesosEsquema(discId)
+        datas: dados.datas || {}, pesos: pesosEsquema(discId),
+        chamada: (() => { const ch = dados.chamada && dados.chamada.turmas && dados.chamada.turmas[tid];
+          return ch && ch.ativa ? { disc: discId, sem: sk, turma: tid, dias: ch.dias, ini: ch.ini, fim: ch.fim } : null; })()
       }});
     });
   });
@@ -2930,7 +3109,7 @@ async function publicarPortal(incluir, opts = {}){
       entradas[id] = { iv: _b64(iv), ct: _b64(ct) };
     }
     const arquivo = { v:1, alg:'PBKDF2-SHA256 + AES-256-GCM', iter:PORTAL_ITER, salt:p.salt,
-                      atualizado:new Date().toISOString(), entradas };
+                      atualizado:new Date().toISOString(), entradas, chamada: _chamadaURL() || null };
 
     log.textContent = '☁ Enviando ao Gist do portal...';
     const headers = { Authorization: `token ${token}`, 'Content-Type': 'application/json' };
@@ -2955,6 +3134,7 @@ async function publicarPortal(incluir, opts = {}){
       O GitHub pode levar alguns minutos para refletir a atualização.`;
     renderPortal();
     if (incluir && opts.avisar !== false && mudancas && Object.keys(mudancas).length) await _oferecerAvisoEmail(mudancas);
+    if (_chamadaURL()) enviarConfigChamada(true);   // mantém turmas e códigos da chamada em dia
     return true;
   } catch (e) {
     if (anterior) p.publicados[chave] = anterior; else delete p.publicados[chave];
@@ -3490,6 +3670,7 @@ function _ehMapaFrequencia(texto) {
 }
 async function importarMapaFrequencia(file) {
   const r = lerMapaFrequencia(await _itensPDF(file));
+  const porData = lerMapaPorData(await _itensPDFDet(file));   // valor de cada data (para a conciliação)
   const d = _disc(ctx.discId);
   const nAl = Object.keys(r.alunos).length;
   if (!nAl) return `⚠ ${_esc(file.name)}: nenhum aluno encontrado no mapa de frequência.`;
@@ -3501,7 +3682,13 @@ async function importarMapaFrequencia(file) {
   const fora = Object.keys(r.alunos).filter(m => !naTurma.has(m));
   const semMapa = [...naTurma].filter(m => !r.alunos[m]);
   const alunos = {};
-  Object.entries(r.alunos).forEach(([m, a]) => { alunos[m] = { faltasH: a.faltasH, registros: a.registros }; });
+  let incons = 0;
+  Object.entries(r.alunos).forEach(([m, a]) => {
+    const dias = porData[m] || {}, soma = Object.values(dias).reduce((s, v) => s + v, 0);
+    if (soma !== a.faltasH) incons++;
+    alunos[m] = { faltasH: a.faltasH, registros: a.registros, dias };
+  });
+  if (incons) return `⚠ ${_esc(file.name)}: a leitura por data não fechou com o total de ${incons} aluno(s). Nada foi importado; envie este PDF para análise.`;
   ctxData().freq = { importadoEm: new Date().toISOString(), arquivo: file.name, alunos };
   const acima = Object.keys(alunos).filter(m => naTurma.has(m) && freqDe(m)?.reprova).length;
   const alerta = Object.keys(alunos).filter(m => naTurma.has(m) && freqDe(m)?.alerta && !freqDe(m)?.reprova).length;
@@ -3843,6 +4030,264 @@ async function _oferecerAvisoEmail(mudancas) {
     } catch (e) { falhas.push(e.message); break; }
   }
   log.innerHTML += `<br><span style="color:var(--accent2);font-weight:700">✉ ${enviados} aviso(s) enviado(s).</span>` + (falhas.length ? ` <span style="color:var(--danger)">${falhas.length} falha(s): ${_esc(falhas.join('; '))}</span>` : '');
+}
+
+// Leitura do mapa por data. Os números do cabeçalho podem vir colados num único trecho ("6 11 13 18");
+// a posição de cada caractere é reconstruída pelas larguras da fonte (Arial/Helvetica: dígito 556, espaço 278, '*' 389).
+const _LARG = ch => (ch >= '0' && ch <= '9') ? 556 : ch === '*' ? 389 : ch === ' ' ? 278 : 500;
+async function _itensPDFDet(file) {
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const paginas = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    paginas.push(tc.items.filter(it => it.str && it.str.trim()).map(it => {
+      const t = it.transform, girado = Math.abs(t[0]) < 1e-3 && Math.abs(t[3]) < 1e-3;
+      const dir = girado ? Math.sign(t[1]) || 1 : Math.sign(t[0]) || 1;
+      return { lin: girado ? t[4] : t[5], col: girado ? t[5] : t[4], s: it.str, w: it.width, dir };
+    }));
+  }
+  return paginas;
+}
+// Quebra um trecho em caracteres com a posição central de cada um no eixo da coluna
+function _charsDe(it) {
+  const tot = [...it.s].reduce((a, ch) => a + _LARG(ch), 0) || 1, k = it.w / tot;
+  let x = 0; const out = [];
+  [...it.s].forEach(ch => { const w = _LARG(ch) * k; out.push({ ch, c: it.col + it.dir * (x + w / 2) }); x += w; });
+  return out;
+}
+const _MESES = { janeiro: 1, fevereiro: 2, 'março': 3, marco: 3, abril: 4, maio: 5, junho: 6, julho: 7, agosto: 8, setembro: 9, outubro: 10, novembro: 11, dezembro: 12 };
+function lerMapaPorData(paginas) {
+  const todos = paginas.flat(), texto = todos.map(i => i.s).join(' ');
+  const ano = +((texto.match(/Turma:\s*\S+\s*-\s*(\d{4})\.\d/) || [])[1] || 0);
+  const res = {};
+  paginas.forEach(itens => {
+    const cab = itens.find(i => /^Matr[ií]cula$/i.test(i.s.trim()));
+    if (!cab) return;
+    // dias do cabeçalho: números na mesma linha de "Matrícula", em ordem de coluna
+    const dias = [];
+    itens.filter(i => Math.abs(i.lin - cab.lin) <= 2.5 && /^[\d\s]+$/.test(i.s)).forEach(i => {
+      let num = '', ini = null, fim = null;
+      _charsDe(i).forEach(({ ch, c }) => {
+        if (ch >= '0' && ch <= '9') { if (!num) ini = c; num += ch; fim = c; }
+        else if (num) { dias.push({ d: +num, c: (ini + fim) / 2 }); num = ''; }
+      });
+      if (num) dias.push({ d: +num, c: (ini + fim) / 2 });
+    });
+    dias.sort((a, b) => a.c - b.c);
+    // meses na ordem do cabeçalho; troca de mês quando o dia diminui
+    const meses = itens.filter(i => _MESES[i.s.trim().toLowerCase()]).sort((a, b) => a.col - b.col).map(i => _MESES[i.s.trim().toLowerCase()]);
+    let mi = 0, prev = 0;
+    dias.forEach(x => { if (x.d <= prev && mi < meses.length - 1) mi++; prev = x.d;
+      x.iso = `${ano}-${String(meses[mi] || 0).padStart(2, '0')}-${String(x.d).padStart(2, '0')}`; });
+    const passo = dias.length > 1 ? Math.min(...dias.slice(1).map((x, i) => x.c - dias[i].c)) : 10;
+    itens.filter(i => /^\d{9}$/.test(i.s.trim())).forEach(m => {
+      const reg = {};
+      itens.filter(i => i !== m && Math.abs(i.lin - m.lin) <= 2.5 && /^[*\d\s]+$/.test(i.s)).forEach(i => {
+        _charsDe(i).forEach(({ ch, c }) => {
+          if (ch === ' ') return;
+          let best = null, dist = Infinity;
+          dias.forEach(x => { const dd = Math.abs(x.c - c); if (dd < dist) { dist = dd; best = x; } });
+          if (best && dist <= passo * 0.6) reg[best.iso] = ch === '*' ? 0 : +ch;
+        });
+      });
+      res[m.s.trim()] = reg;
+    });
+  });
+  return res;
+}
+
+// ══════════════════════════════════════════════════════════
+//  CHAMADA DA AULA PRÁTICA E CONCILIAÇÃO COM O SIGAA (v2.1)
+// ══════════════════════════════════════════════════════════
+const CHAMADA_PADRAO = {   // por disciplina: uma entrada por turma, na ordem das turmas
+  EEC0274_Civil:     [{ dias: [3], ini: '14:00', fim: '18:45', horasT: 3, horasP: 3 }],
+  EEC0273_Ambiental: [{ dias: [4], ini: '06:50', fim: '09:10', horasT: 0, horasP: 2 }, { dias: [4], ini: '10:30', fim: '12:50', horasT: 0, horasP: 2 }],
+  EEC0296_SR:        [{ dias: [4], ini: '13:40', fim: '15:55', horasT: 0, horasP: 2 }, { dias: [4], ini: '15:55', fim: '18:00', horasT: 0, horasP: 2 }],
+};
+const _DSEM = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+function chamadaCfg() {
+  const d = ctxData(); if (!d.chamada) d.chamada = { turmas: {} };
+  const pad = CHAMADA_PADRAO[ctx.discId] || [];
+  Object.keys(ctxTurmas()).forEach((t, i) => {
+    if (d.chamada.turmas[t]) return;
+    const base = pad[Math.min(i, pad.length - 1)] || { dias: [3], ini: '14:00', fim: '18:45', horasT: 0, horasP: 2 };
+    d.chamada.turmas[t] = { ativa: i < pad.length, ...JSON.parse(JSON.stringify(base)) };
+  });
+  return d.chamada;
+}
+function _chamadaURL() { return ((portalCfg().chamada || {}).url || '').trim(); }
+function _chaveServicos() {
+  let k = (localStorage.getItem('diarioprof_mail_key') || '').trim();
+  if (!k) { const r = crypto.getRandomValues(new Uint8Array(24)); k = Array.from(r, b => COD_ALFABETO[b % 32]).join(''); localStorage.setItem('diarioprof_mail_key', k); _mailCfgParaEstado(); }
+  return k;
+}
+async function _postChamada(corpo) {
+  const url = _chamadaURL(); if (!url) throw new Error('informe a URL do Apps Script da chamada');
+  const r = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(corpo) }, 30000);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+function renderChamada() {
+  const box = document.getElementById('chamada-turmas'); if (!box) return;
+  const cfg = chamadaCfg(), u = document.getElementById('cham-url');
+  if (u && document.activeElement !== u) u.value = _chamadaURL();
+  box.innerHTML = `<table><thead><tr><th>Ativa</th><th style="text-align:left">Turma</th><th>Dias</th><th>Abre</th><th>Fecha</th>
+      <th title="Horas de teoria no mesmo dia da prática (0 se a prática é em outro dia)">Teoria no dia (h)</th><th>Prática (h)</th></tr></thead><tbody>${
+    Object.entries(cfg.turmas).filter(([t]) => ctxTurmas()[t]).map(([t, c]) => `<tr>
+      <td style="text-align:center"><input type="checkbox" ${c.ativa ? 'checked' : ''} onchange="_setCham('${t}','ativa',this.checked)"></td>
+      <td><b>${t}</b> <span style="color:var(--muted);font-size:.75rem">(${ctxTurmas()[t].alunos.length})</span></td>
+      <td style="white-space:nowrap">${[1, 2, 3, 4, 5, 6].map(d => `<label style="font-size:.72rem;margin-right:4px"><input type="checkbox" ${c.dias.includes(d) ? 'checked' : ''} onchange="_setChamDia('${t}',${d},this.checked)">${_DSEM[d]}</label>`).join('')}</td>
+      <td><input type="time" value="${c.ini}" onchange="_setCham('${t}','ini',this.value)"></td>
+      <td><input type="time" value="${c.fim}" onchange="_setCham('${t}','fim',this.value)"></td>
+      <td><input type="number" min="0" max="8" value="${c.horasT}" style="width:56px" onchange="_setCham('${t}','horasT',+this.value)"></td>
+      <td><input type="number" min="1" max="8" value="${c.horasP}" style="width:56px" onchange="_setCham('${t}','horasP',+this.value)"></td></tr>`).join('')}</tbody></table>`;
+  const pr = ctxData().praticas;
+  document.getElementById('cham-info').textContent = pr ? `Registros buscados em ${_fmtDH(pr.buscadoEm)}: ${pr.regs.length} nesta disciplina.` : 'Registros ainda não buscados.';
+}
+function _setCham(t, k, v) { chamadaCfg().turmas[t][k] = v; saveAll(); renderChamada(); }
+function _setChamDia(t, d, on) { const c = chamadaCfg().turmas[t]; c.dias = on ? [...new Set([...c.dias, d])].sort() : c.dias.filter(x => x !== d); saveAll(); }
+function setChamadaURL(v) { const p = portalCfg(); p.chamada = { ...(p.chamada || {}), url: v.trim() }; saveAll(); }
+function copiarScriptChamada() {
+  const src = document.getElementById('chamada-script-src').textContent.trim().replace("'COLE_AQUI_A_CHAVE'", `'${_chaveServicos()}'`);
+  navigator.clipboard.writeText(src).then(() => toast('Código copiado com a sua chave embutida.'),
+    () => ui.pedir('Copie o código abaixo:', src, { titulo: 'Apps Script da chamada', ok: 'Fechar', area: true }));
+}
+function _logCham(html) { const el = document.getElementById('cham-log'); if (el) el.innerHTML = html; }
+async function testarChamada() {
+  _logCham('Testando…');
+  try { const r = await _postChamada({ acao: 'teste', chave: _chaveServicos() });
+    _logCham(r.ok ? `<span style="color:var(--accent2)">✓ Conectado. Relógio do servidor: ${_esc(r.agora)}.</span>` : `<span style="color:var(--danger)">⚠ ${_esc(r.erro)}</span>`);
+  } catch (e) { _logCham(`<span style="color:var(--danger)">⚠ ${_esc(e.message)}</span>`); }
+}
+// Envia ao servidor as turmas, horários e verificadores dos códigos (o servidor nunca recebe os códigos)
+async function enviarConfigChamada(silencioso = false) {
+  if (!_chamadaURL()) { if (!silencioso) ui.avisar('Informe a URL do Apps Script da chamada.', { titulo: 'Chamada da prática' }); return false; }
+  const p = portalCfg(), contextos = [];
+  for (const [discId, sems] of Object.entries(state.dados || {})) for (const [sk, dados] of Object.entries(sems || {})) {
+    const turmas = {}, ch = dados.chamada && dados.chamada.turmas;
+    if (!ch) continue;
+    for (const [tid, c] of Object.entries(ch)) {
+      if (!c.ativa || !dados.turmas || !dados.turmas[tid]) continue;
+      const alunos = {};
+      for (const a of dados.turmas[tid].alunos) alunos[a.matricula] = { n: a.nome, v: await _sha256Hex(p.salt + ':' + a.matricula + ':' + codigoAluno(a.matricula)) };
+      turmas[tid] = { dias: c.dias, ini: c.ini, fim: c.fim, alunos };
+    }
+    if (Object.keys(turmas).length) contextos.push({ disc: discId, sem: sk, salt: p.salt, turmas });
+  }
+  if (!contextos.length) { if (!silencioso) ui.avisar('Nenhuma turma com chamada ativa.', { titulo: 'Chamada da prática' }); return false; }
+  try {
+    const r = await _postChamada({ acao: 'config', chave: _chaveServicos(), contextos });
+    if (!r.ok) throw new Error(r.erro || 'falha');
+    if (!silencioso) _logCham(`<span style="color:var(--accent2)">✓ Configuração enviada: ${contextos.length} disciplina(s)/semestre(s).</span>`);
+    return true;
+  } catch (e) { if (!silencioso) _logCham(`<span style="color:var(--danger)">⚠ ${_esc(e.message)}</span>`); return false; }
+}
+async function buscarRegistrosChamada() {
+  _logCham('Buscando registros…');
+  try {
+    const r = await _postChamada({ acao: 'registros', chave: _chaveServicos() });
+    if (!r.ok) throw new Error(r.erro || 'falha');
+    const sk = semKey(), legado = ctx.discId === 'EEC0274_Civil' && sk === '2026_2';
+    const regs = [];
+    r.registros.forEach(x => {
+      if (x.disc === ctx.discId && x.sem === sk) regs.push({ d: x.d, m: x.m, t: x.t });
+      else if (!x.disc && legado && x.t === 'turma_1') regs.push({ d: x.d, m: x.m, t: 'B01' });   // QR antigo deste semestre
+    });
+    ctxData().praticas = { buscadoEm: new Date().toISOString(), regs };
+    saveAll(); renderChamada();
+    _logCham(`<span style="color:var(--accent2)">✓ ${regs.length} registro(s) de presença nesta disciplina.</span>`);
+  } catch (e) { _logCham(`<span style="color:var(--danger)">⚠ ${_esc(e.message)}</span>`); }
+}
+function imprimirQRChamada() {
+  const url = portalURL();
+  if (!url) { ui.avisar('Publique o portal desta disciplina antes de imprimir o QR da chamada.', { titulo: 'QR da chamada' }); return; }
+  if (typeof QRCode === 'undefined') { ui.avisar('A biblioteca de QR code não carregou.', { titulo: 'QR da chamada' }); return; }
+  const d = _disc(ctx.discId), cfg = chamadaCfg(), ativas = Object.entries(cfg.turmas).filter(([t, c]) => c.ativa && ctxTurmas()[t]);
+  if (!ativas.length) { ui.avisar('Nenhuma turma com chamada ativa.', { titulo: 'QR da chamada' }); return; }
+  const folhas = ativas.map(([t, c]) => {
+    const link = `${url}&p=${encodeURIComponent(ctx.discId + '~' + semKey() + '~' + t)}`;
+    return `<div class="f"><div class="t">Chamada da aula prática</div><div class="d">${_esc(d.codigo)} · ${_esc(d.nome)}${d.sufixo ? ' — ' + _esc(d.sufixo) : ''}<br>Turma ${t} · ${ctx.ano}.${ctx.semestre}</div>
+      <img src="${_qrDataURL(link, 520)}" alt="QR"><div class="h">${c.dias.map(x => _DSEM[x]).join(', ')}, das ${c.ini} às ${c.fim}</div>
+      <ol><li>Aponte a câmera do celular para o código.</li><li>Entre no Portal do Aluno (matrícula e código, ou o app instalado).</li><li>Toque em <b>Registrar presença</b>.</li></ol></div>`;
+  });
+  const w = window.open('', '_blank');
+  if (!w) { ui.avisar('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>QR da chamada — ${_esc(d.codigo)}</title><style>
+    @page { size: A4; margin: 14mm; } body { font-family: Arial, sans-serif; margin: 0; color: #000; }
+    .f { page-break-after: always; text-align: center; padding-top: 10mm; } .t { font-size: 26px; font-weight: 700; }
+    .d { font-size: 16px; margin: 8px 0 14px; } img { width: 125mm; height: 125mm; } .h { font-size: 20px; font-weight: 700; margin: 10px 0; }
+    ol { text-align: left; display: inline-block; font-size: 15px; line-height: 1.6; }</style></head><body>${folhas.join('')}
+    <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };<\/script></body></html>`);
+  w.document.close();
+}
+
+// ── Conciliação: valor a lançar no SIGAA = teoria (já lançada) + prática (registros do QR) ──
+function _dowISO(iso) { const g = new Date(iso + 'T12:00:00').getDay(); return g === 0 ? 7 : g; }
+function _regraConciliacao(v, temPratica, presente, tH, pH) {
+  const ok = { tipo: 'ok', v, alvo: v };
+  if (!temPratica) return { tipo: 'sem', v, alvo: v };
+  if (v === undefined) return tH === 0 ? { tipo: 'alterar', v: null, alvo: presente ? 0 : pH } : { tipo: 'pendente', v: null, alvo: null, presente };
+  if (tH === 0) { const alvo = presente ? 0 : pH; return v === alvo ? ok : { tipo: presente && v > 0 ? 'conflito' : 'alterar', v, alvo }; }
+  if (v === 0) return presente ? ok : { tipo: 'alterar', v, alvo: pH };
+  if (v === tH + pH) return presente ? { tipo: 'conflito', v, alvo: tH } : ok;
+  if (v === pH || v === tH) return ok;
+  return { tipo: 'conferir', v, alvo: null };
+}
+function calcularConciliacao(tid) {
+  const c = chamadaCfg().turmas[tid], f = ctxData().freq, regs = (ctxData().praticas || {}).regs || [];
+  const alunos = (ctxTurmas()[tid] || {}).alunos || [], pres = {};
+  regs.filter(r => r.t === tid).forEach(r => { (pres[r.d] = pres[r.d] || new Set()).add(r.m); });
+  const datas = new Set(Object.keys(pres));
+  alunos.forEach(a => Object.keys((f && f.alunos && f.alunos[a.matricula] && f.alunos[a.matricula].dias) || {}).forEach(d => datas.add(d)));
+  const lista = [...datas].filter(d => c.dias.includes(_dowISO(d))).sort();
+  return { lista, linhas: alunos.map(a => ({ a, cels: lista.map(d => {
+    const dias = f && f.alunos && f.alunos[a.matricula] && f.alunos[a.matricula].dias;
+    return _regraConciliacao(dias ? dias[d] : undefined, !!(pres[d] && pres[d].size), !!(pres[d] && pres[d].has(a.matricula)), c.horasT, c.horasP);
+  }) })), semRegistro: lista.filter(d => !(pres[d] && pres[d].size)) };
+}
+function _dm(iso) { const [, m, d] = iso.split('-'); return `${d}/${m}`; }
+function renderConciliacao() {
+  const div = document.getElementById('conc-area'); if (!div) return;
+  const f = ctxData().freq, temDias = f && Object.values(f.alunos || {}).some(a => a.dias);
+  if (!f) { div.innerHTML = '<p style="color:var(--warn)">Importe primeiro o mapa de frequência mais recente do SIGAA (aba Importar PDF).</p>'; return; }
+  if (!temDias) { div.innerHTML = '<p style="color:var(--warn)">O mapa importado é de uma versão anterior, que não guardava o valor de cada data. Importe o mapa de novo.</p>'; return; }
+  if (!ctxData().praticas) { div.innerHTML = '<p style="color:var(--warn)">Clique em "Buscar registros" na chamada da prática.</p>'; return; }
+  const ativas = Object.entries(chamadaCfg().turmas).filter(([t, c]) => c.ativa && ctxTurmas()[t]);
+  const blocos = [], csv = [['Turma', 'Data', 'Matrícula', 'Nome', 'SIGAA atual', 'Lançar', 'Tipo']];
+  let nAlt = 0, nConf = 0, nPend = 0;
+  ativas.forEach(([tid]) => {
+    const R = calcularConciliacao(tid);
+    if (!R.lista.length) { blocos.push(`<h4>Turma ${tid}</h4><p style="color:var(--muted)">Nenhuma data de prática no mapa nem nos registros.</p>`); return; }
+    const porData = {};
+    R.linhas.forEach(L => L.cels.forEach((x, i) => {
+      if (x.tipo === 'alterar' || x.tipo === 'conflito' || x.tipo === 'conferir') {
+        (porData[R.lista[i]] = porData[R.lista[i]] || []).push({ a: L.a, x });
+        csv.push([tid, _dm(R.lista[i]), L.a.matricula, L.a.nome, x.v === null ? '' : x.v, x.alvo === null ? '?' : x.alvo, x.tipo]);
+      }
+      if (x.tipo === 'alterar') nAlt++; if (x.tipo === 'conflito' || x.tipo === 'conferir') nConf++; if (x.tipo === 'pendente') nPend++;
+    }));
+    const cel = x => x.tipo === 'alterar' ? `<td class="cc-alt" title="Lançar ${x.alvo}">${x.v === null ? '—' : x.v}→${x.alvo}</td>`
+      : x.tipo === 'conflito' ? `<td class="cc-conf" title="O SIGAA tem ${x.v} h de falta, mas houve registro de presença na prática. Sugestão: ${x.alvo}. Confira.">${x.v}→${x.alvo}?</td>`
+      : x.tipo === 'conferir' ? `<td class="cc-conf" title="Valor fora do padrão: confira">${x.v}?</td>`
+      : x.tipo === 'pendente' ? `<td class="cc-pend" title="Teoria ainda não lançada no SIGAA; prática: ${x.presente ? 'presente' : 'faltou'}">${x.presente ? 'P' : 'F'}</td>`
+      : x.tipo === 'sem' ? `<td class="cc-sem" title="Nenhum registro de presença nesta data">${x.v === undefined ? '' : x.v}</td>`
+      : `<td>${x.v}</td>`;
+    blocos.push(`<h4>Turma ${tid}</h4>
+      ${R.semRegistro.length ? `<p class="cc-nota">Sem nenhum registro de presença em ${R.semRegistro.map(_dm).join(', ')}: tratado como dia sem aula prática. Se houve prática, confira.</p>` : ''}
+      <div class="table-wrap"><table class="cc-tab"><thead><tr><th style="text-align:left">Aluno</th>${R.lista.map(d => `<th>${_dm(d)}</th>`).join('')}</tr></thead><tbody>
+      ${R.linhas.map(L => `<tr><td style="white-space:nowrap">${_esc(L.a.nome.split(' ').slice(0, 3).join(' '))}</td>${L.cels.map(cel).join('')}</tr>`).join('')}</tbody></table></div>
+      ${Object.keys(porData).length ? `<div class="cc-lista"><b>O que lançar no SIGAA (turma ${tid}):</b>${Object.keys(porData).sort().map(d => `<div><b>${_dm(d)}</b>: ${porData[d].map(({ a, x }) =>
+        `${_esc(a.nome)} <span class="${x.tipo === 'alterar' ? 'cc-t-alt' : 'cc-t-conf'}">${x.v === null ? '—' : x.v} → ${x.alvo === null ? '?' : x.alvo}${x.tipo !== 'alterar' ? ' (conferir)' : ''}</span>`).join('; ')}</div>`).join('')}</div>`
+        : '<p style="color:var(--accent2)">✓ Nada a alterar no SIGAA nesta turma.</p>'}`);
+  });
+  div.innerHTML = `<p style="font-size:.82rem">${nAlt} alteração(ões) a lançar · ${nConf} para conferir · ${nPend} aguardando a chamada da teoria.
+    <span style="color:var(--muted)">Legenda: <span class="cc-alt" style="padding:0 4px">0→3</span> lançar · <span class="cc-conf" style="padding:0 4px">6→3?</span> conferir · <span class="cc-pend" style="padding:0 4px">P/F</span> prática registrada, teoria ainda não lançada.</span></p>` + blocos.join('');
+  div.dataset.csv = csv.map(r => r.join(';')).join('\n');
+}
+function baixarConciliacaoCSV() {
+  const t = document.getElementById('conc-area')?.dataset.csv; if (!t) { renderConciliacao(); }
+  const blob = new Blob(['\ufeff' + (document.getElementById('conc-area').dataset.csv || '')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `conciliacao_SIGAA_${_disc(ctx.discId).codigo}_${semKey()}.csv`; a.click();
 }
 
 // ══════════════════════════════════════════════════════════
