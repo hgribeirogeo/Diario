@@ -265,6 +265,7 @@
   .sync-ind.mut  { color: var(--muted); }
   .sync-ind.warn { color: var(--warn); }
   .sync-ind.err  { color: var(--danger); border-color: var(--danger); }
+  body.setup-aberto .sync-ind { display: none; }
 
   /* ── TOAST ── */
   #toast {
@@ -381,6 +382,7 @@
   </div>
 
   <div class="capa-main">
+    <div id="capa-aviso-sync"></div>
     <div class="capa-section-title" id="capa-sem-label">Disciplinas — 2026.2</div>
     <div class="disc-grid" id="disc-grid"></div>
   </div>
@@ -703,12 +705,12 @@
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;max-width:960px">
         <label style="font-size:.78rem;color:var(--muted)">URL do App da Web
           <input type="text" id="mail-url" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;margin-top:4px"
-                 oninput="localStorage.setItem('diarioprof_mail_url',this.value.trim())">
+                 oninput="localStorage.setItem('diarioprof_mail_url',this.value.trim());_mailCfgParaEstado()">
         </label>
         <label style="font-size:.78rem;color:var(--muted)">Chave secreta (a mesma do script)
           <span style="display:flex;gap:6px;margin-top:4px">
             <input type="text" id="mail-key" style="flex:1;font-family:monospace"
-                   oninput="localStorage.setItem('diarioprof_mail_key',this.value.trim())">
+                   oninput="localStorage.setItem('diarioprof_mail_key',this.value.trim());_mailCfgParaEstado()">
             <button class="btn btn-ghost btn-sm" onclick="gerarChaveEmail()">Gerar</button>
           </span>
         </label>
@@ -800,6 +802,33 @@ function resp(o) {
       </div>
       <span id="gist-status" style="font-size:.75rem;color:var(--muted)"></span>
       <div id="gist-info" style="font-size:.75rem;color:var(--muted);line-height:1.5"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">📱 Configurar outro dispositivo</div>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin-bottom:10px">
+      Gera um link e um QR code que configuram outro computador ou celular de uma vez.
+      Ao abrir, o aparelho baixa sozinho todos os dados do Gist, inclusive a configuração do envio de e-mails.
+    </p>
+    <button class="btn btn-primary btn-sm" onclick="gerarLinkSetup()">🔗 Gerar link e QR code</button>
+    <div id="setup-area" style="display:none;margin-top:14px">
+      <div style="background:#f0a03018;border:1px solid var(--warn);border-radius:8px;padding:10px 12px;font-size:.78rem;line-height:1.55;margin-bottom:12px">
+        <b style="color:var(--warn)">⚠ Este link contém o seu token do GitHub: trate-o como senha.</b>
+        Quem o tiver pode ler e alterar os seus Gists, inclusive os do LabResearch. Abra-o só nos seus aparelhos e não o envie em grupos.
+        O QR code e o link somem desta tela em 2 minutos.
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <div id="setup-qr" style="background:#fff;padding:10px;border-radius:8px;line-height:0"></div>
+        <div style="flex:1;min-width:240px">
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px">No celular: aponte a câmera para o QR code. No computador: copie o link e abra no navegador.</div>
+          <input type="text" id="setup-link" readonly style="width:100%;font-family:monospace;font-size:.72rem">
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="copiarLinkSetup()">📋 Copiar link</button>
+            <button class="btn btn-ghost btn-sm" onclick="ocultarSetup()">Ocultar</button>
+          </div>
+          <div id="setup-resumo" style="font-size:.75rem;color:var(--muted);margin-top:8px;line-height:1.5"></div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="card">
@@ -1155,6 +1184,7 @@ function _adotarRemoto(remoto) {
   const ids = state.disciplinas.map(d => d.id);
   DISC_DEFAULT.forEach(d => { if (!ids.includes(d.id)) state.disciplinas.unshift(d); });
   if (!state.disciplinas.find(d => d.id === ctx.discId)) ctx.discId = state.disciplinas[0]?.id;
+  _mailCfgDoEstado();
   _gravarLocal();
   localStorage.removeItem(PEND_KEY);
   localStorage.setItem(SYNC_KEY, new Date().toISOString());
@@ -1490,6 +1520,7 @@ function switchToApp(tab) {
 
 // ── Render Capa ──
 function renderCapa() {
+  renderAvisoSync();
   const grid = document.getElementById('disc-grid');
   const label = document.getElementById('capa-sem-label');
   label.textContent = `Disciplinas — ${ctx.ano}.${ctx.semestre}`;
@@ -2835,6 +2866,7 @@ async function gerarChaveEmail(){
   const k = Array.from(r, b => COD_ALFABETO[b % 32]).join('');
   document.getElementById('mail-key').value = k;
   localStorage.setItem('diarioprof_mail_key', k);
+  _mailCfgParaEstado();
   toast('Chave gerada. Use “Copiar código do Apps Script”: ela já vai embutida.');
 }
 
@@ -3122,7 +3154,9 @@ async function init() {
         'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
   } catch(e) { console.warn('PDF.js worker não disponível:', e); }
+  const _setup = aplicarSetupDaURL();   // link de configuração: aplicado antes de carregar os dados
   loadLocal();
+  _mailCfgDoEstado();
 
   // Recompor disciplinas padrão
   const savedIds = state.disciplinas.map(d => d.id);
@@ -3147,7 +3181,139 @@ async function init() {
   // Tela já desenhada com os dados locais; o Gist é verificado em segundo plano
   setSyncIndicador(!localStorage.getItem(GIST_TOK_KEY) ? 'local'
                    : localStorage.getItem(PEND_KEY) === '1' ? 'pendente' : 'ok');
-  reconciliarComGist();
+  reconciliarComGist().then(() => _mailCfgLevarAoGist());
+  if (_setup && _setup.ok) toast('Aparelho configurado. Baixando os dados do Gist…');
+  if (_setup && _setup.erro) ui.avisar(_setup.erro, { titulo: 'Configurar dispositivo' });
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONFIGURAR OUTRO DISPOSITIVO — link #setup= com QR (v1.5)
+//  O fragmento (#...) nunca é enviado ao servidor; o token sai da barra de endereço ao abrir.
+// ══════════════════════════════════════════════════════════
+let _setupTimer = null;
+function _b64urlEncode(str) {
+  const b = new TextEncoder().encode(str); let s = '';
+  b.forEach(x => { s += String.fromCharCode(x); });
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function _b64urlDecode(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '=';
+  const bin = atob(s), a = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(a);
+}
+
+async function gerarLinkSetup() {
+  const t = localStorage.getItem(GIST_TOK_KEY), g = localStorage.getItem(GIST_ID_KEY);
+  if (!t || !g) {
+    await ui.avisar('Este aparelho ainda não tem token e Gist configurados. Preencha os campos de sincronização acima primeiro.', { titulo: 'Configurar outro dispositivo' });
+    return;
+  }
+  _mailCfgLevarAoGist();
+  // O outro aparelho vai baixar o Gist: ele precisa estar em dia antes
+  if (localStorage.getItem(PEND_KEY) === '1' || localStorage.getItem(MIGR_KEY) !== '1') {
+    const ok = await syncGist();
+    if (!ok) {
+      await ui.avisar('Há alterações deste aparelho que ainda não chegaram ao Gist, e o envio falhou agora. Resolva a sincronização (indicador no canto da tela) antes de configurar outro aparelho.', { titulo: 'Configurar outro dispositivo' });
+      return;
+    }
+  }
+  const cfg = { v: 1, g: localStorage.getItem(GIST_ID_KEY), t };
+  if (localStorage.getItem(MIGR_KEY) === '1') cfg.p = 1;
+  // A configuração do envio de e-mails não vai no QR (deixaria o código denso demais para a câmera): ela viaja pelo Gist
+  const url = location.origin + location.pathname + '#setup=' + _b64urlEncode(JSON.stringify(cfg));
+  document.getElementById('setup-link').value = url;
+  const qr = document.getElementById('setup-qr'); qr.innerHTML = ''; qr.style.display = 'none';
+  if (typeof QRCode !== 'undefined') {
+    try { new QRCode(qr, { text: url, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.L }); qr.style.display = ''; }
+    catch (e) { qr.innerHTML = ''; }
+  }
+  document.getElementById('setup-resumo').innerHTML =
+    `O link leva só o Gist (${_esc(cfg.g.slice(0, 7))}…) e o token do GitHub.<br>` +
+    `Alunos, notas, códigos, vínculos de e-mail e a configuração do envio de e-mails vêm do Gist assim que o aparelho abrir.` +
+    (qr.style.display === 'none' ? '<br>O QR code não pôde ser gerado; use o link.' : '');
+  document.getElementById('setup-area').style.display = '';
+  document.body.classList.add('setup-aberto');   // indicador de sync não pode cobrir o QR
+  clearTimeout(_setupTimer); _setupTimer = setTimeout(ocultarSetup, 120000);
+}
+
+function ocultarSetup() {
+  clearTimeout(_setupTimer);
+  const a = document.getElementById('setup-area'); if (!a) return;
+  a.style.display = 'none';
+  document.body.classList.remove('setup-aberto');
+  document.getElementById('setup-qr').innerHTML = '';
+  document.getElementById('setup-link').value = '';
+}
+
+function copiarLinkSetup() {
+  const el = document.getElementById('setup-link'); if (!el.value) return;
+  navigator.clipboard.writeText(el.value).then(
+    () => toast('Link copiado. Trate-o como senha.'),
+    () => { el.focus(); el.select(); toast('Selecione e copie com Ctrl+C.'); });
+}
+
+// Configuração do envio de e-mails: guardada no aparelho (uso) e no estado (viaja pelo Gist)
+function _mailCfgParaEstado() {
+  const p = portalCfg();
+  p.mail = { url: (localStorage.getItem('diarioprof_mail_url') || '').trim(),
+             key: (localStorage.getItem('diarioprof_mail_key') || '').trim() };
+  saveAll();
+}
+function _mailCfgDoEstado() {
+  const m = state.portal && state.portal.mail;
+  const lu = localStorage.getItem('diarioprof_mail_url'), lk = localStorage.getItem('diarioprof_mail_key');
+  if (m && (m.url || m.key)) {                       // o Gist manda: chave nova gerada em outro aparelho chega aqui
+    if (m.url) localStorage.setItem('diarioprof_mail_url', m.url);
+    if (m.key) localStorage.setItem('diarioprof_mail_key', m.key);
+    const mu = document.getElementById('mail-url'), mk = document.getElementById('mail-key');
+    if (mu) mu.value = m.url || ''; if (mk) mk.value = m.key || '';
+  }
+}
+// Leva ao Gist a configuração que só existe neste aparelho. Só é chamada DEPOIS da reconciliação,
+// para nunca marcar pendências antes de comparar com o Gist.
+function _mailCfgLevarAoGist() {
+  const m = state.portal && state.portal.mail;
+  if (m && (m.url || m.key)) return false;
+  const lu = localStorage.getItem('diarioprof_mail_url'), lk = localStorage.getItem('diarioprof_mail_key');
+  if (!lu && !lk) return false;
+  _mailCfgParaEstado();
+  return true;
+}
+
+// Chamado no INIT antes de carregar os dados
+function aplicarSetupDaURL() {
+  const m = location.hash.match(/^#setup=([A-Za-z0-9_-]+)$/);
+  if (!m) return null;
+  history.replaceState(null, '', location.pathname + location.search);   // remove o token da barra e do histórico
+  let cfg;
+  try { cfg = JSON.parse(_b64urlDecode(m[1])); }
+  catch (e) { return { erro: 'O link de configuração está incompleto ou corrompido. Gere outro no aparelho já configurado.' }; }
+  if (!cfg || typeof cfg.g !== 'string' || typeof cfg.t !== 'string' ||
+      !/^[A-Za-z0-9]{4,64}$/.test(cfg.g) || cfg.t.length < 10) {
+    return { erro: 'O link de configuração é inválido. Gere outro no aparelho já configurado.' };
+  }
+  localStorage.setItem(GIST_TOK_KEY, cfg.t);
+  localStorage.setItem(GIST_ID_KEY, cfg.g);
+  if (cfg.p) localStorage.setItem(MIGR_KEY, '1'); else localStorage.removeItem(MIGR_KEY);
+  if (cfg.mu) localStorage.setItem('diarioprof_mail_url', cfg.mu);
+  if (cfg.mk) localStorage.setItem('diarioprof_mail_key', cfg.mk);
+  localStorage.removeItem(GIST_ANT_KEY);
+  // Dados antigos deste aparelho não são enviados às cegas: a reconciliação compara datas e quantidades
+  localStorage.removeItem(PEND_KEY);
+  return { ok: true, email: !!cfg.mu };
+}
+
+// Aviso na capa para aparelho sem sincronização
+function renderAvisoSync() {
+  const el = document.getElementById('capa-aviso-sync'); if (!el) return;
+  el.innerHTML = localStorage.getItem(GIST_TOK_KEY) ? '' :
+    `<div style="background:#f0a03018;border:1px solid var(--warn);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:.84rem;line-height:1.55">
+       <b style="color:var(--warn)">Este aparelho não está sincronizado.</b> Os dados ficam só aqui.
+       Para usar os mesmos dados de outro aparelho, abra nele <b>⚙ Config → Configurar outro dispositivo</b>
+       e escaneie o QR code ou abra o link gerado.
+       <button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="switchToApp('config')">Configurar aqui</button>
+     </div>`;
 }
 
 
