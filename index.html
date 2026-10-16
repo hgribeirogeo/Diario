@@ -255,6 +255,17 @@
   .badge-b01 { background:#3d8ef033; color:var(--accent); }
   .badge-b02 { background:#27c98f33; color:var(--accent2); }
 
+  /* ── INDICADOR DE SINCRONIZAÇÃO ── */
+  .sync-ind {
+    position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 400;
+    font: inherit; font-size: .74rem; font-weight: 700; padding: 6px 12px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--surface); cursor: pointer; box-shadow: 0 2px 10px #0006;
+  }
+  .sync-ind.ok   { color: var(--accent2); }
+  .sync-ind.mut  { color: var(--muted); }
+  .sync-ind.warn { color: var(--warn); }
+  .sync-ind.err  { color: var(--danger); border-color: var(--danger); }
+
   /* ── TOAST ── */
   #toast {
     position: fixed; bottom: 24px; right: 24px;
@@ -333,6 +344,7 @@
     .prob-wrap { display: none !important; }
     .sit-col-print { display: table-cell !important; }
     .no-print { display: none !important; }
+    .sync-ind { display: none !important; }
     .print-only { display: block !important; }
     @page { margin: 15mm; size: A4 landscape; }
   }
@@ -780,13 +792,14 @@ function resp(o) {
       </label>
       <label style="font-size:.8rem;color:var(--muted)">Gist ID (deixe vazio para criar novo)
         <input type="text" id="gist-id" placeholder="(será criado automaticamente)" style="width:100%;margin-top:4px"
-               oninput="localStorage.setItem('diarioprof_gist_id',this.value)">
+               oninput="localStorage.setItem('diarioprof_gist_id',this.value.trim());localStorage.removeItem('diarioprof_gist_proprio')">
       </label>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-primary btn-sm" onclick="syncGist()">🔄 Sincronizar agora</button>
+        <button class="btn btn-primary btn-sm" onclick="sincronizarAgora()">🔄 Sincronizar agora</button>
         <button class="btn btn-ghost btn-sm" onclick="loadGist()">⬇ Carregar do Gist</button>
       </div>
       <span id="gist-status" style="font-size:.75rem;color:var(--muted)"></span>
+      <div id="gist-info" style="font-size:.75rem;color:var(--muted);line-height:1.5"></div>
     </div>
   </div>
   <div class="card">
@@ -798,6 +811,23 @@ function resp(o) {
 
 </main>
 </div><!-- /tela-app -->
+
+<!-- INDICADOR DE SINCRONIZAÇÃO -->
+<button type="button" id="sync-ind" class="sync-ind mut" onclick="sincronizarAgora()" title="Clique para sincronizar">Local (sem sync remoto)</button>
+
+<!-- DIÁLOGO PADRÃO (substitui alert/confirm/prompt) -->
+<div class="modal-backdrop" id="modal-dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-titulo" style="z-index:600">
+  <div class="modal" style="max-width:480px;width:92vw">
+    <h3 id="dlg-titulo"></h3>
+    <div id="dlg-msg" style="font-size:.88rem;line-height:1.55;white-space:pre-line"></div>
+    <input type="text" id="dlg-input" style="width:100%;margin-top:12px;display:none">
+    <textarea id="dlg-area" class="annotation" style="margin-top:12px;min-height:160px;font-family:monospace;font-size:.72rem;display:none"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="dlg-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="dlg-ok">OK</button>
+    </div>
+  </div>
+</div>
 
 <!-- TOAST -->
 <div id="toast"></div>
@@ -932,19 +962,345 @@ function ctxDiario()  { return ctxData().diario; }
 function ctxAlunos()  { return ctxTurmas()[ctx.turmaId]?.alunos || []; }
 
 // ══════════════════════════════════════════════════════════
-//  PERSISTÊNCIA
+//  PERSISTÊNCIA — padrão LabResearch (v1.4)
+//  1. grava local primeiro · 2. Gist em segundo plano com timeout
+//  3. marca "pendente" até o Gist confirmar · 4. ao abrir, nunca deixa
+//     o remoto sobrescrever o local sem checar data e quantidade
 // ══════════════════════════════════════════════════════════
-const STORE_KEY     = 'diarioprof_v3';
-const GIST_TOK_KEY  = 'diarioprof_gist_token';
-const GIST_ID_KEY   = 'diarioprof_gist_id';
+const STORE_KEY      = 'diarioprof_v3';
+const GIST_TOK_KEY   = 'diarioprof_gist_token';
+const GIST_ID_KEY    = 'diarioprof_gist_id';
+const PEND_KEY       = 'diarioprof_pendente';
+const SYNC_KEY       = 'diarioprof_ultimo_sync';
+const MIGR_KEY       = 'diarioprof_gist_proprio';   // '1' = Gist atual é exclusivo do DiárioProf
+const GIST_ANT_KEY   = 'diarioprof_gist_antigo';    // Gist compartilhado de onde os dados saíram
+const GIST_FILE      = 'diario_professor.json';
+const GIST_DESC      = 'DiárioProf UFG/EECA — dados do sistema';
+const _ESTADO_INICIAL = JSON.stringify(state);
+
+let _syncTimer = null, _syncEmCurso = false, _syncDeNovo = false;
+
+function fetchWithTimeout(url, opts = {}, ms = 12000) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), ms);
+  return fetch(url, { ...opts, signal: ac.signal })
+    .catch(e => { throw new Error(e.name === 'AbortError' ? 'sem resposta do GitHub (tempo esgotado)' : 'sem conexão com o GitHub'); })
+    .finally(() => clearTimeout(t));
+}
+function _hdr(token) {
+  return { Authorization: `token ${token}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github+json' };
+}
+function hojeLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function _fmtDH(iso) {
+  try { return new Date(iso).toLocaleString('pt-BR', { dateStyle:'short', timeStyle:'short' }); } catch(e) { return iso; }
+}
+
+// Quantidade de registros (alunos, notas lançadas, entradas de diário, códigos e e-mails)
+function contarRegistros(s) {
+  let n = 0;
+  Object.values((s && s.dados) || {}).forEach(disc => Object.values(disc || {}).forEach(sem => {
+    Object.values((sem && sem.turmas) || {}).forEach(t => { n += ((t && t.alunos) || []).length; });
+    Object.values((sem && sem.notas) || {}).forEach(nt => {
+      n += Object.values(nt || {}).filter(v => v !== '' && v !== null && v !== undefined).length;
+    });
+    Object.values((sem && sem.diario) || {}).forEach(arr => { n += (arr || []).length; });
+  }));
+  const p = (s && s.portal) || {};
+  n += Object.keys(p.codigos || {}).length + Object.keys(p.emails || {}).length;
+  return n;
+}
+
+function _gravarLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 
 function saveAll() {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    state.atualizadoEm = new Date().toISOString();
+    _gravarLocal();
+    localStorage.setItem(PEND_KEY, '1');
     showSaveStatus('✓ Salvo');
-    syncGist();
-  } catch(e) { showSaveStatus('⚠ Erro ao salvar'); }
+  } catch(e) {
+    showSaveStatus('⚠ Erro ao salvar');
+    setSyncIndicador('erro', 'falha ao gravar neste aparelho');
+    return;
+  }
+  agendarSync();
 }
+
+function agendarSync(ms = 1500) {
+  if (!localStorage.getItem(GIST_TOK_KEY)) { setSyncIndicador('local'); return; }
+  setSyncIndicador('pendente');
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(syncGist, ms);
+}
+
+async function _criarGist(token) {
+  const r = await fetchWithTimeout('https://api.github.com/gists', {
+    method: 'POST', headers: _hdr(token),
+    body: JSON.stringify({ public: false, description: GIST_DESC,
+                           files: { [GIST_FILE]: { content: JSON.stringify(state) } } })
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.id) throw new Error('não foi possível criar o Gist (' + (d.message || 'HTTP ' + r.status) + ')');
+  return d.id;
+}
+
+async function _baixarGist(id, token) {
+  const r = await fetchWithTimeout(`https://api.github.com/gists/${id}`, { headers: _hdr(token), cache: 'no-store' });
+  if (!r.ok) throw new Error('Gist inacessível (HTTP ' + r.status + ')');
+  return r.json();
+}
+
+async function _conteudoGist(d, token) {
+  const f = d && d.files && d.files[GIST_FILE];
+  if (!f) return null;
+  let txt = f.content;
+  if (f.truncated && f.raw_url) {
+    const r = await fetchWithTimeout(f.raw_url, { headers: { Authorization: `token ${token}` } });
+    if (!r.ok) throw new Error('falha ao baixar o arquivo completo do Gist');
+    txt = await r.text();
+  }
+  try { return JSON.parse(txt); } catch(e) { throw new Error('conteúdo do Gist ilegível'); }
+}
+
+// Lê os dados do Gist configurado, seguindo o aviso de mudança deixado por outro aparelho
+async function _lerDadosGist(token) {
+  let id = localStorage.getItem(GIST_ID_KEY);
+  let d = await _baixarGist(id, token);
+  let remoto = await _conteudoGist(d, token);
+  if (remoto && remoto.movidoPara && remoto.movidoPara !== id) {
+    localStorage.setItem(GIST_ANT_KEY, id);
+    id = remoto.movidoPara;
+    localStorage.setItem(GIST_ID_KEY, id);
+    localStorage.setItem(MIGR_KEY, '1');
+    const campo = document.getElementById('gist-id'); if (campo) campo.value = id;
+    d = await _baixarGist(id, token);
+    remoto = await _conteudoGist(d, token);
+  }
+  return { d, remoto };
+}
+
+// Garante um Gist exclusivo. Se o atual for compartilhado (ex.: LabResearch), cria um novo com os
+// dados, confirma a criação e só então troca a cópia antiga por um aviso de redirecionamento.
+async function garantirGistProprio(token) {
+  const atual = localStorage.getItem(GIST_ID_KEY);
+  if (atual && localStorage.getItem(MIGR_KEY) === '1') return atual;
+  if (atual) {
+    const d = await _baixarGist(atual, token);
+    const outros = Object.keys(d.files || {}).filter(n => n !== GIST_FILE);
+    if (!outros.length) { localStorage.setItem(MIGR_KEY, '1'); return atual; }
+    const conteudo = await _conteudoGist(d, token).catch(() => null);
+    if (conteudo && conteudo.movidoPara) {
+      localStorage.setItem(GIST_ANT_KEY, atual);
+      localStorage.setItem(GIST_ID_KEY, conteudo.movidoPara);
+      localStorage.setItem(MIGR_KEY, '1');
+      return conteudo.movidoPara;
+    }
+  }
+  const novo = await _criarGist(token);
+  if (atual) {
+    const r = await fetchWithTimeout(`https://api.github.com/gists/${atual}`, {
+      method: 'PATCH', headers: _hdr(token),
+      body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify({
+        movidoPara: novo, movidoEm: new Date().toISOString(),
+        aviso: 'Os dados do DiárioProf foram movidos para um Gist próprio.' }) } } })
+    });
+    if (r.ok) localStorage.setItem(GIST_ANT_KEY, atual);
+  }
+  localStorage.setItem(GIST_ID_KEY, novo);
+  localStorage.setItem(MIGR_KEY, '1');
+  const campo = document.getElementById('gist-id'); if (campo) campo.value = novo;
+  return novo;
+}
+
+async function syncGist() {
+  const token = localStorage.getItem(GIST_TOK_KEY);
+  if (!token) { setSyncIndicador('local'); return false; }
+  if (_syncEmCurso) { _syncDeNovo = true; return false; }
+  _syncEmCurso = true;
+  clearTimeout(_syncTimer);
+  setSyncIndicador('enviando');
+  const versao = state.atualizadoEm;
+  try {
+    const id = await garantirGistProprio(token);
+    const r = await fetchWithTimeout(`https://api.github.com/gists/${id}`, {
+      method: 'PATCH', headers: _hdr(token),
+      body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(state) } } })
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error('GitHub recusou o envio (' + (d.message || 'HTTP ' + r.status) + ')');
+    }
+    if (state.atualizadoEm === versao) localStorage.removeItem(PEND_KEY);
+    localStorage.setItem(SYNC_KEY, new Date().toISOString());
+    setSyncIndicador(localStorage.getItem(PEND_KEY) === '1' ? 'pendente' : 'ok');
+    return true;
+  } catch(e) {
+    localStorage.setItem(PEND_KEY, '1');
+    setSyncIndicador('erro', e.message || String(e));
+    return false;
+  } finally {
+    _syncEmCurso = false;
+    if (_syncDeNovo || localStorage.getItem(PEND_KEY) === '1' && state.atualizadoEm !== versao) {
+      _syncDeNovo = false; agendarSync(500);
+    }
+  }
+}
+
+function _adotarRemoto(remoto) {
+  Object.values(remoto.dados || {}).forEach(disc => Object.values(disc || {}).forEach(sem => sanitizeNotas(sem)));
+  state = deepMerge(JSON.parse(_ESTADO_INICIAL), remoto);
+  const ids = state.disciplinas.map(d => d.id);
+  DISC_DEFAULT.forEach(d => { if (!ids.includes(d.id)) state.disciplinas.unshift(d); });
+  if (!state.disciplinas.find(d => d.id === ctx.discId)) ctx.discId = state.disciplinas[0]?.id;
+  _gravarLocal();
+  localStorage.removeItem(PEND_KEY);
+  localStorage.setItem(SYNC_KEY, new Date().toISOString());
+  renderVisaoAtual();
+}
+
+// Ao abrir (e em "Sincronizar agora"): decide entre usar o Gist, enviar o local ou nada fazer
+async function reconciliarComGist({ manual = false } = {}) {
+  const token = localStorage.getItem(GIST_TOK_KEY);
+  if (!token) { setSyncIndicador('local'); return 'local'; }
+  if (!localStorage.getItem(GIST_ID_KEY) || localStorage.getItem(PEND_KEY) === '1') {
+    const ok = await syncGist();
+    if (manual && ok) toast('Alterações enviadas ao Gist.');
+    return ok ? 'enviado' : 'erro';
+  }
+  setSyncIndicador('verificando');
+  try {
+    const { remoto } = await _lerDadosGist(token);
+    if (!remoto || !remoto.dados) { const ok = await syncGist(); return ok ? 'enviado' : 'erro'; }
+    const tR = remoto.atualizadoEm || '', tL = state.atualizadoEm || '';
+    const nR = contarRegistros(remoto), nL = contarRegistros(state);
+    let acao;
+    if (tR === tL)      acao = tR ? 'igual' : (nR > nL ? 'adotar' : 'enviar');
+    else if (tR > tL)   acao = nR >= nL ? 'adotar' : 'conflito';
+    else                acao = 'enviar';
+    if (acao === 'conflito') {
+      const usar = await ui.confirmar(
+        `O Gist tem uma versão mais recente (${_fmtDH(tR)}), porém com menos registros que este aparelho (${nR} contra ${nL}).\n\n` +
+        `Para não perder dados, a versão deste aparelho foi mantida. Deseja substituí-la pela versão do Gist?`,
+        { titulo: 'Versões diferentes', ok: 'Usar a versão do Gist', cancelar: 'Manter este aparelho', focoCancelar: true });
+      acao = usar ? 'adotar' : 'enviar';
+    }
+    if (acao === 'adotar') {
+      _adotarRemoto(remoto); setSyncIndicador('ok');
+      if (manual) toast('Dados atualizados a partir do Gist.');
+    } else if (acao === 'enviar') {
+      const ok = await syncGist();
+      if (manual && ok) toast('Alterações enviadas ao Gist.');
+    } else {
+      localStorage.setItem(SYNC_KEY, new Date().toISOString()); setSyncIndicador('ok');
+      if (manual) toast('Tudo sincronizado.');
+    }
+    if (localStorage.getItem(MIGR_KEY) !== '1') await syncGist();   // migração para Gist próprio
+    return acao;
+  } catch(e) {
+    setSyncIndicador('erro', e.message || String(e));
+    return 'erro';
+  }
+}
+
+async function sincronizarAgora() {
+  if (!localStorage.getItem(GIST_TOK_KEY)) {
+    await ui.avisar('Configure o token do GitHub em ⚙ Config para sincronizar entre aparelhos.', { titulo: 'Sincronização' });
+    return;
+  }
+  clearTimeout(_syncTimer);
+  await reconciliarComGist({ manual: true });
+}
+
+async function loadGist() {
+  const token = localStorage.getItem(GIST_TOK_KEY);
+  if (!token || !localStorage.getItem(GIST_ID_KEY)) { setGistStatus('⚠ Token ou Gist ID ausente'); return; }
+  const ok = await ui.confirmar('Substituir os dados deste aparelho pela versão salva no Gist?\n\nAlterações deste aparelho que ainda não foram enviadas serão perdidas.',
+    { titulo: 'Carregar do Gist', ok: 'Substituir', perigo: true });
+  if (!ok) return;
+  setSyncIndicador('verificando');
+  try {
+    const { remoto } = await _lerDadosGist(token);
+    if (!remoto || !remoto.dados) { setSyncIndicador('ok'); await ui.avisar('O Gist não contém dados do DiárioProf.'); return; }
+    _adotarRemoto(remoto); setSyncIndicador('ok');
+    toast('Dados carregados do Gist!');
+  } catch(e) { setSyncIndicador('erro', e.message || String(e)); }
+}
+
+function setGistStatus(msg) {
+  const el = document.getElementById('gist-status');
+  if (el) el.textContent = msg;
+}
+
+function setSyncIndicador(estado, detalhe = '') {
+  const el = document.getElementById('sync-ind');
+  const ult = localStorage.getItem(SYNC_KEY);
+  const hm  = ult ? new Date(ult).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const map = {
+    ok:          ['ok',   `✓ Gist${hm ? ' · ' + hm : ''}`],
+    local:       ['mut',  'Local (sem sync remoto)'],
+    pendente:    ['warn', '● Alterações a enviar'],
+    enviando:    ['mut',  '↻ Sincronizando…'],
+    verificando: ['mut',  '↻ Verificando Gist…'],
+    erro:        ['err',  '⚠ Falha — Gist'],
+  };
+  const [cls, txt] = map[estado] || map.local;
+  if (el) {
+    el.className = 'sync-ind ' + cls;
+    el.textContent = txt;
+    el.title = (detalhe ? detalhe + ' — ' : '') + 'Clique para sincronizar';
+    el.dataset.estado = estado;
+  }
+  setGistStatus(txt + (detalhe ? ' — ' + detalhe : ''));
+}
+
+function renderInfoGist() {
+  const div = document.getElementById('gist-info'); if (!div) return;
+  const id = localStorage.getItem(GIST_ID_KEY), ant = localStorage.getItem(GIST_ANT_KEY);
+  div.innerHTML =
+    (id && localStorage.getItem(MIGR_KEY) === '1' ? `<div>Gist exclusivo do DiárioProf: <code>${id}</code></div>` : '') +
+    (ant ? `<div style="margin-top:6px">Os dados saíram do Gist compartilhado <code>${ant}</code>; lá ficou só um aviso de redirecionamento
+            para outros aparelhos. Depois de abrir o DiárioProf em todos os seus aparelhos, você pode removê-lo.
+            <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="removerAvisoGistAntigo()">Remover aviso do Gist antigo</button></div>` : '');
+}
+
+async function removerAvisoGistAntigo() {
+  const token = localStorage.getItem(GIST_TOK_KEY), ant = localStorage.getItem(GIST_ANT_KEY);
+  if (!token || !ant) return;
+  const ok = await ui.confirmar('Remover o aviso de redirecionamento do Gist antigo?\n\nFaça isso só depois de abrir esta versão do DiárioProf em todos os aparelhos que você usa. Os outros arquivos desse Gist (como os do LabResearch) não são alterados.',
+    { titulo: 'Gist antigo', ok: 'Remover aviso', perigo: true });
+  if (!ok) return;
+  try {
+    const r = await fetchWithTimeout(`https://api.github.com/gists/${ant}`, {
+      method: 'PATCH', headers: _hdr(token), body: JSON.stringify({ files: { [GIST_FILE]: null } }) });
+    if (!r.ok && r.status !== 422) throw new Error('HTTP ' + r.status);
+    localStorage.removeItem(GIST_ANT_KEY); renderInfoGist(); toast('Aviso removido do Gist antigo.');
+  } catch(e) { await ui.avisar('Não foi possível remover: ' + (e.message || e)); }
+}
+
+function renderVisaoAtual() {
+  try {
+    if (document.getElementById('tela-capa')?.classList.contains('active')) { renderCapa(); return; }
+    const ativa = (document.querySelector('.section.active')?.id || '').replace('tab-', '');
+    renderAll();
+    if (ativa === 'relatorio') renderRelatorio();
+    if (ativa === 'analytics') renderAnalytics();
+    if (ativa === 'portal')    renderPortal();
+    if (ativa === 'config')    renderConfig();
+  } catch(e) { console.warn('renderVisaoAtual:', e); }
+}
+
+// Ao sair ou trocar de aba do navegador: grava local e tenta um último envio
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'hidden') return;
+  try { _gravarLocal(); } catch(e) {}
+  const token = localStorage.getItem(GIST_TOK_KEY), id = localStorage.getItem(GIST_ID_KEY);
+  if (!token || !id || localStorage.getItem(PEND_KEY) !== '1' || localStorage.getItem(MIGR_KEY) !== '1') return;
+  const body = JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(state) } } });
+  if (body.length < 60000) fetch(`https://api.github.com/gists/${id}`, { method: 'PATCH', headers: _hdr(token), body, keepalive: true }).catch(() => {});
+});
 
 function sanitizeNotas(dados) {
   // Remove NaN e valores inválidos de qualquer nota salva
@@ -1000,62 +1356,12 @@ setInterval(() => {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e) {}
 }, 30000);
 
-// ── Gist ──
-async function syncGist() {
-  const token  = localStorage.getItem(GIST_TOK_KEY);
-  let   gistId = localStorage.getItem(GIST_ID_KEY);
-  if (!token) return;
-  const body = { files: { 'diario_professor.json': { content: JSON.stringify(state, null, 2) } } };
-  try {
-    let r;
-    if (gistId) {
-      r = await fetch(`https://api.github.com/gists/${gistId}`, {
-        method: 'PATCH',
-        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-    } else {
-      r = await fetch('https://api.github.com/gists', {
-        method: 'POST',
-        headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body, public: false, description: 'DiárioProf UFG/EECA' })
-      });
-      const d = await r.json();
-      if (d.id) { localStorage.setItem(GIST_ID_KEY, d.id); document.getElementById('gist-id').value = d.id; }
-    }
-    setGistStatus('✓ Gist sincronizado ' + new Date().toLocaleTimeString('pt-BR'));
-    showSaveStatus('✓ Salvo + Gist');
-  } catch(e) { setGistStatus('⚠ Gist offline'); }
-}
-
-async function loadGist() {
-  const token  = localStorage.getItem(GIST_TOK_KEY);
-  const gistId = localStorage.getItem(GIST_ID_KEY);
-  if (!token || !gistId) { setGistStatus('⚠ Token ou Gist ID ausente'); return; }
-  try {
-    const r = await fetch(`https://api.github.com/gists/${gistId}`,
-                          { headers: { Authorization: `token ${token}` } });
-    const d = await r.json();
-    const content = d?.files?.['diario_professor.json']?.content;
-    if (content) {
-      state = deepMerge(state, JSON.parse(content));
-      saveAll(); renderAll(); toast('Dados carregados do Gist!');
-      setGistStatus('✓ Carregado do Gist');
-    }
-  } catch(e) { setGistStatus('⚠ Erro ao carregar Gist'); }
-}
-
-function setGistStatus(msg) {
-  const el = document.getElementById('gist-status');
-  if (el) el.textContent = msg;
-}
-
 // ── Export / Import JSON ──
 function exportJSON() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url;
-  a.download = `diarioprof_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `diarioprof_backup_${hojeLocal()}.json`;
   a.click(); URL.revokeObjectURL(url);
   toast('JSON exportado!');
 }
@@ -1098,7 +1404,7 @@ function importJSON() {
     mostrarCapa();
     renderCapa();
     toast('Dados importados com sucesso!');
-  } catch(e) { alert('JSON inválido: ' + e.message); }
+  } catch(e) { ui.avisar('JSON inválido: ' + e.message, { titulo: 'Importar backup' }); }
 }
 
 // Drag-and-drop no modal JSON
@@ -1196,14 +1502,8 @@ function renderCapa() {
     const notas  = dados?.notas  || {};
     const totalAlunos = Object.values(turmas).reduce((s,t) => s + t.alunos.length, 0);
     const mfs = Object.values(turmas).flatMap(t =>
-      t.alunos.map(a => {
-        const n = notas[a.matricula] || {};
-        const MT = avg(n.T1,n.T2,n.T3,n.T4);
-        const N1 = avg(n.P1,n.P2);
-        const N2 = avg(MT,n.P3);
-        return avg(N1,N2);
-      })
-    ).filter(v => v !== null);
+      t.alunos.map(a => _calcObj(notas[a.matricula] || {}).MF)   // mesma regra das outras telas: não entregue = 0
+    );
     const aprov = mfs.filter(v => v >= 6).length;
 
     const card = document.createElement('div');
@@ -1405,8 +1705,8 @@ function selectTurma(t) {
   renderAll();
 }
 
-function addTurma() {
-  const nome = prompt('Nome da nova turma (ex: B03):')?.trim().toUpperCase();
+async function addTurma() {
+  const nome = (await ui.pedir('Nome da nova turma (ex.: B03):', '', { titulo: 'Nova turma', ok: 'Criar' }))?.trim().toUpperCase();
   if (!nome) return;
   if (ctxTurmas()[nome]) { toast('Turma já existe!'); return; }
   ctxTurmas()[nome] = { alunos: [] };
@@ -1559,7 +1859,7 @@ function renderDiario() {
 
 function addDiarioEntry() {
   const id  = 'D_' + Date.now();
-  const day = new Date().toISOString().slice(0,10);
+  const day = hojeLocal();
   if (!ctxDiario()[ctx.turmaId]) ctxDiario()[ctx.turmaId] = [];
   ctxDiario()[ctx.turmaId].unshift({ id, date: day, conteudo: '', obs: '' });
   saveAll(); renderDiario();
@@ -1572,8 +1872,8 @@ function onDiarioChange(ta) {
   if (entry) { entry[field] = ta.value; saveAll(); }
 }
 
-function deleteDiario(id) {
-  if (!confirm('Remover esta entrada?')) return;
+async function deleteDiario(id) {
+  if (!(await ui.confirmar('Remover esta entrada do diário?', { titulo: 'Diário de aulas', ok: 'Remover', perigo: true }))) return;
   ctxDiario()[ctx.turmaId] = ctxDiario()[ctx.turmaId].filter(e => e.id !== id);
   saveAll(); renderDiario();
 }
@@ -1689,8 +1989,8 @@ function renderAlunosMgr() {
     </div>`).join('');
 }
 
-function removeAluno(tid, mat) {
-  if (!confirm('Remover este aluno?')) return;
+async function removeAluno(tid, mat) {
+  if (!(await ui.confirmar(`Remover o aluno ${mat} da turma ${tid}? As notas lançadas ficam guardadas.`, { titulo: 'Remover aluno', ok: 'Remover', perigo: true }))) return;
   ctxTurmas()[tid].alunos = ctxTurmas()[tid].alunos.filter(a => a.matricula !== mat);
   saveAll(); renderAll(); toast('Aluno removido.');
 }
@@ -1699,9 +1999,9 @@ function confirmAddStudent() {
   const tid  = document.getElementById('add-turma').value;
   const mat  = document.getElementById('add-mat').value.trim();
   const nome = document.getElementById('add-nome').value.trim().toUpperCase();
-  if (!mat || !nome) { alert('Preencha matrícula e nome.'); return; }
+  if (!mat || !nome) { ui.avisar('Preencha matrícula e nome.'); return; }
   if (!ctxTurmas()[tid]) ctxTurmas()[tid] = { alunos: [] };
-  if (ctxTurmas()[tid].alunos.find(a => a.matricula === mat)) { alert('Matrícula já cadastrada.'); return; }
+  if (ctxTurmas()[tid].alunos.find(a => a.matricula === mat)) { ui.avisar('Matrícula já cadastrada nesta turma.'); return; }
   ctxTurmas()[tid].alunos.push({ matricula: mat, nome });
   saveAll(); renderAll(); closeModal('modal-add-aluno');
   toast('Aluno adicionado!');
@@ -1850,30 +2150,31 @@ function renderConfig() {
   const gid = localStorage.getItem(GIST_ID_KEY)||'';
   if (tok) document.getElementById('gist-token').value = tok;
   if (gid) document.getElementById('gist-id').value   = gid;
+  renderInfoGist();
 }
 
 function confirmNovaDisc() {
   const cod    = document.getElementById('nd-codigo').value.trim().toUpperCase();
   const nome   = document.getElementById('nd-nome').value.trim();
   const sufixo = document.getElementById('nd-sufixo').value.trim();
-  if (!cod || !nome) { alert('Código e nome são obrigatórios.'); return; }
+  if (!cod || !nome) { ui.avisar('Código e nome são obrigatórios.'); return; }
   const id = cod + (sufixo ? '_' + sufixo.replace(/\s+/g,'') : '');
-  if (state.disciplinas.find(d => d.id === id)) { alert('Disciplina já existe.'); return; }
+  if (state.disciplinas.find(d => d.id === id)) { ui.avisar('Essa disciplina já existe.'); return; }
   state.disciplinas.push({ id, codigo: cod, nome, sufixo });
   saveAll();
   closeModal('modal-nova-disc'); renderConfig();
   toast('Disciplina criada!');
 }
 
-function removeDisc(id) {
-  if (!confirm('Remover disciplina? Os dados ficam preservados no JSON.')) return;
+async function removeDisc(id) {
+  if (!(await ui.confirmar('Remover esta disciplina da lista? Os dados ficam preservados no backup JSON.', { titulo: 'Remover disciplina', ok: 'Remover', perigo: true }))) return;
   state.disciplinas = state.disciplinas.filter(d => d.id !== id);
   if (ctx.discId === id) ctx.discId = state.disciplinas[0]?.id;
   saveAll(); renderConfig(); toast('Disciplina removida.');
 }
 
-function limparTurma() {
-  if (!confirm(`Remover todos os alunos de ${ctx.turmaId} em ${ctx.discId} ${semKey()}?`)) return;
+async function limparTurma() {
+  if (!(await ui.confirmar(`Remover todos os alunos de ${ctx.turmaId} em ${ctx.discId} ${semKey()}? As notas ficam guardadas.`, { titulo: 'Limpar turma', ok: 'Remover alunos', perigo: true }))) return;
   ctxTurmas()[ctx.turmaId].alunos = [];
   saveAll(); renderAll(); toast('Turma limpa.');
 }
@@ -2266,11 +2567,11 @@ async function publicarPortal(incluir){
   const p     = portalCfg();
   const log   = document.getElementById('portal-log');
   const token = localStorage.getItem(GIST_TOK_KEY);
-  if (!token) { alert('Configure o token do GitHub na aba ⚙ Config antes de publicar.'); return; }
-  if (!(window.crypto && crypto.subtle)) { alert('Criptografia indisponível neste navegador (requer HTTPS).'); return; }
+  if (!token) { await ui.avisar('Configure o token do GitHub na aba ⚙ Config antes de publicar.', { titulo: 'Portal do Aluno' }); return; }
+  if (!(window.crypto && crypto.subtle)) { await ui.avisar('Criptografia indisponível neste navegador (requer HTTPS).', { titulo: 'Portal do Aluno' }); return; }
   const chave = portalKey();
   if (!incluir && !p.publicados[chave]) { toast('Esta disciplina não está publicada.'); return; }
-  if (!incluir && !confirm('Retirar esta disciplina do portal? Os alunos deixarão de ver estas notas.')) return;
+  if (!incluir && !(await ui.confirmar('Retirar esta disciplina do portal? Os alunos deixarão de ver estas notas.', { titulo: 'Portal do Aluno', ok: 'Retirar', perigo: true }))) return;
 
   const anterior = p.publicados[chave];
   if (incluir) p.publicados[chave] = new Date().toISOString(); else delete p.publicados[chave];
@@ -2363,8 +2664,8 @@ function renderPortal(){
   if (novos) saveAll();
 }
 
-function regenerarCodigo(mat){
-  if (!confirm(`Gerar novo código para ${mat}? O código atual deixará de funcionar após a próxima publicação.`)) return;
+async function regenerarCodigo(mat){
+  if (!(await ui.confirmar(`Gerar novo código para ${mat}? O código atual deixará de funcionar após a próxima publicação.`, { titulo: 'Novo código', ok: 'Gerar novo código' }))) return;
   portalCfg().codigos[mat] = gerarCodigo();
   saveAll(); renderPortal();
   toast('Novo código gerado. Clique em Publicar / atualizar.');
@@ -2373,7 +2674,7 @@ function regenerarCodigo(mat){
 function copiarLinkPortal(){
   const url = portalURL();
   if (!url) { toast('Publique uma disciplina primeiro.'); return; }
-  navigator.clipboard.writeText(url).then(() => toast('Link copiado!'), () => prompt('Copie o link:', url));
+  navigator.clipboard.writeText(url).then(() => toast('Link copiado!'), () => ui.pedir('Copie o link:', url, { titulo: 'Link do portal', ok: 'Fechar' }));
 }
 
 function _qrDataURL(text, size){
@@ -2385,8 +2686,8 @@ function _qrDataURL(text, size){
 
 function imprimirFichas(){
   const url = portalURL();
-  if (!url) { alert('Publique esta disciplina no portal antes de imprimir as fichas.'); return; }
-  if (typeof QRCode === 'undefined') { alert('A biblioteca de QR code não carregou. Verifique a conexão.'); return; }
+  if (!url) { ui.avisar('Publique esta disciplina no portal antes de imprimir as fichas.', { titulo: 'Fichas de acesso' }); return; }
+  if (typeof QRCode === 'undefined') { ui.avisar('A biblioteca de QR code não carregou. Verifique a conexão.', { titulo: 'Fichas de acesso' }); return; }
   const disc = state.disciplinas.find(d => d.id === ctx.discId);
   const nomeDisc = disc ? `${disc.codigo} · ${disc.nome}${disc.sufixo ? ' — ' + disc.sufixo : ''}` : '';
   const fichas = [];
@@ -2403,9 +2704,9 @@ function imprimirFichas(){
     </div>`);
   }));
   saveAll();
-  if (!fichas.length) { alert('Nenhum aluno nesta disciplina/semestre.'); return; }
+  if (!fichas.length) { ui.avisar('Nenhum aluno nesta disciplina/semestre.', { titulo: 'Fichas de acesso' }); return; }
   const w = window.open('', '_blank');
-  if (!w) { alert('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'); return; }
+  if (!w) { ui.avisar('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.', { titulo: 'Fichas de acesso' }); return; }
   w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Fichas de acesso — ${nomeDisc} ${ctx.ano}.${ctx.semestre}</title>
 <style>
@@ -2513,12 +2814,12 @@ function renderVinculos(){
   document.getElementById('btn-salvar-vinc').style.display = '';
 }
 
-function salvarVinculos(){
+async function salvarVinculos(){
   if (!_vincTemp) return;
   const cont = {}; _vincTemp.forEach(v => { if (v.mat) cont[v.mat] = (cont[v.mat] || 0) + 1; });
-  if (Object.values(cont).some(n => n > 1)) { alert('Há aluno vinculado a mais de um e-mail. Corrija antes de salvar.'); return; }
+  if (Object.values(cont).some(n => n > 1)) { await ui.avisar('Há aluno vinculado a mais de um e-mail. Corrija antes de salvar.', { titulo: 'Vínculos de e-mail' }); return; }
   const nVer = _vincTemp.filter(v => v.mat && v.conf === 'verificar').length;
-  if (nVer && !confirm(`${nVer} vínculo(s) estão marcados para verificação. Você conferiu? Salvar mesmo assim?`)) return;
+  if (nVer && !(await ui.confirmar(`${nVer} vínculo(s) estão marcados para verificação. Você conferiu? Salvar mesmo assim?`, { titulo: 'Vínculos de e-mail', ok: 'Salvar vínculos' }))) return;
   const p = portalCfg(); if (!p.emails) p.emails = {};
   let n = 0;
   _vincTemp.forEach(v => { if (v.mat) { p.emails[v.mat] = v.email; n++; } });
@@ -2527,9 +2828,9 @@ function salvarVinculos(){
   toast(`${n} vínculo(s) salvos.`);
 }
 
-function gerarChaveEmail(){
+async function gerarChaveEmail(){
   const atual = (localStorage.getItem('diarioprof_mail_key') || '').trim();
-  if (atual && !confirm('Já existe uma chave configurada.\n\nGerar outra exige colar o código de novo no Apps Script e publicar uma nova versão da implantação. Continuar?')) return;
+  if (atual && !(await ui.confirmar('Já existe uma chave configurada.\n\nGerar outra exige colar o código de novo no Apps Script e publicar uma nova versão da implantação. Continuar?', { titulo: 'Chave do envio de e-mails', ok: 'Gerar nova chave', perigo: true }))) return;
   const r = crypto.getRandomValues(new Uint8Array(24));
   const k = Array.from(r, b => COD_ALFABETO[b % 32]).join('');
   document.getElementById('mail-key').value = k;
@@ -2543,7 +2844,7 @@ function copiarAppsScript(){
   if (k) src = src.replace("'COLE_AQUI_A_CHAVE'", `'${k}'`);
   navigator.clipboard.writeText(src).then(
     () => toast(k ? 'Código copiado com a sua chave embutida.' : 'Código copiado. Gere uma chave e cole-a em CHAVE.'),
-    () => prompt('Copie o código:', src));
+    () => ui.pedir('Copie o código abaixo:', src, { titulo: 'Código do Apps Script', ok: 'Fechar', area: true }));
 }
 
 async function _postScript(payload){
@@ -2647,7 +2948,7 @@ async function enviarCodigosEmail(){
   const p = portalCfg(); if (!p.emails) p.emails = {}; const env = _envCtx();
   const log = document.getElementById('mail-log');
   if (!localStorage.getItem('diarioprof_mail_url') || !localStorage.getItem('diarioprof_mail_key')) {
-    alert('Informe a URL do App da Web e a chave secreta (veja as instruções no código do Apps Script).'); return;
+    await ui.avisar('Informe a URL do App da Web e a chave secreta (veja as instruções no código do Apps Script).', { titulo: 'Envio de códigos' }); return;
   }
   const so = document.getElementById('mail-so-pendentes').checked;
   const todos = _alunosCtx();
@@ -2655,16 +2956,16 @@ async function enviarCodigosEmail(){
   const semEmail = todos.filter(a => !p.emails[a.matricula]).length;
   const comEmail = todos.filter(a => p.emails[a.matricula]).length;
   if (!comEmail) {
-    alert('Nenhum aluno desta disciplina tem e-mail vinculado.\n\nCole a lista de e-mails, clique em \u201cLocalizar alunos\u201d, confira a tabela e clique em \u201cSalvar vínculos\u201d.');
+    await ui.avisar('Nenhum aluno desta disciplina tem e-mail vinculado.\n\nCole a lista de e-mails, clique em \u201cLocalizar alunos\u201d, confira a tabela e clique em \u201cSalvar vínculos\u201d.', { titulo: 'Envio de códigos' });
     return;
   }
   if (!alvo.length) {
-    alert(`Os ${comEmail} aluno(s) com e-mail vinculado já constam como enviados.\nPara reenviar, desmarque \u201cSomente quem ainda não recebeu\u201d.`);
+    await ui.avisar(`Os ${comEmail} aluno(s) com e-mail vinculado já constam como enviados.\nPara reenviar, desmarque \u201cSomente quem ainda não recebeu\u201d.`, { titulo: 'Envio de códigos' });
     return;
   }
-  if (!confirm(`Enviar o código de acesso para ${alvo.length} aluno(s)?` +
+  if (!(await ui.confirmar(`Enviar o código de acesso para ${alvo.length} aluno(s)?` +
                (semEmail ? `\n${semEmail} aluno(s) sem e-mail vinculado ficarão de fora.` : '') +
-               `\n\nAntes do envio, o portal será republicado para garantir que todos os códigos estejam ativos.`)) return;
+               `\n\nAntes do envio, o portal será republicado para garantir que todos os códigos estejam ativos.`, { titulo: 'Envio de códigos', ok: 'Enviar' }))) return;
 
   // Garante que os códigos enviados já estão publicados (códigos novos ou regenerados)
   log.textContent = '🔐 Atualizando o portal antes do envio...';
@@ -2717,8 +3018,66 @@ function switchTab(name, btn) {
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-backdrop').forEach(m =>
-  m.addEventListener('click', e => { if (e.target===m) m.classList.remove('open'); }));
+// Fecha só se o clique começar e terminar no fundo (arrastar de dentro do formulário não fecha)
+document.querySelectorAll('.modal-backdrop').forEach(m => {
+  let noFundo = false;
+  m.addEventListener('mousedown', e => { noFundo = (e.target === m); });
+  m.addEventListener('mouseup', e => {
+    if (noFundo && e.target === m) { if (m.id === 'modal-dlg') ui._cancelar(); else m.classList.remove('open'); }
+    noFundo = false;
+  });
+});
+// ══════════════════════════════════════════════════════════
+//  DIÁLOGOS PRÓPRIOS (substituem alert/confirm/prompt do navegador)
+// ══════════════════════════════════════════════════════════
+const ui = (() => {
+  let resolver = null, modo = 'confirm';
+  const $ = id => document.getElementById(id);
+  function abrir({ titulo = '', msg = '', ok = 'OK', cancelar = 'Cancelar', perigo = false, valor = null, area = false, soOk = false, focoCancelar = false }) {
+    return new Promise(res => {
+      if (resolver) { const r = resolver; resolver = null; r(modo === 'pedir' ? null : false); }
+      resolver = res;
+      modo = valor !== null ? 'pedir' : (soOk ? 'avisar' : 'confirm');
+      $('dlg-titulo').textContent = titulo;
+      $('dlg-msg').textContent = msg;
+      $('dlg-ok').textContent = ok;
+      $('dlg-ok').className = 'btn ' + (perigo ? 'btn-danger' : 'btn-primary');
+      $('dlg-cancel').textContent = cancelar;
+      $('dlg-cancel').style.display = soOk ? 'none' : '';
+      $('dlg-input').style.display = (valor !== null && !area) ? '' : 'none';
+      $('dlg-area').style.display  = (valor !== null && area)  ? '' : 'none';
+      if (valor !== null) { $('dlg-input').value = valor; $('dlg-area').value = valor; }
+      openModal('modal-dlg');
+      setTimeout(() => {
+        const alvo = valor !== null ? (area ? $('dlg-area') : $('dlg-input'))
+                   : ((perigo || focoCancelar) && !soOk ? $('dlg-cancel') : $('dlg-ok'));
+        alvo.focus(); if (valor !== null && alvo.select) alvo.select();
+      }, 30);
+    });
+  }
+  function fechar(confirmou) {
+    closeModal('modal-dlg');
+    const r = resolver; resolver = null;
+    if (!r) return;
+    if (modo === 'pedir') r(confirmou ? ($('dlg-area').style.display !== 'none' ? $('dlg-area').value : $('dlg-input').value) : null);
+    else r(!!confirmou);
+  }
+  $('dlg-ok').addEventListener('click', () => fechar(true));
+  $('dlg-cancel').addEventListener('click', () => fechar(false));
+  document.addEventListener('keydown', e => {
+    if (!$('modal-dlg').classList.contains('open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); fechar(modo === 'avisar'); }
+    if (e.key === 'Enter' && e.target.id === 'dlg-input') { e.preventDefault(); fechar(true); }   // nos botões, Enter aciona o botão em foco
+  });
+  return {
+    confirmar: (msg, o = {}) => abrir({ titulo: o.titulo || 'Confirmar', msg, ok: o.ok || 'Confirmar', cancelar: o.cancelar || 'Cancelar', perigo: !!o.perigo, focoCancelar: !!o.focoCancelar }),
+    avisar:    (msg, o = {}) => abrir({ titulo: o.titulo || 'Aviso', msg, ok: 'OK', soOk: true }).then(() => {}),
+    pedir:     (msg, padrao = '', o = {}) => abrir({ titulo: o.titulo || 'Informe', msg, ok: o.ok || 'OK', valor: String(padrao ?? ''), area: !!o.area }),
+    _cancelar: () => fechar(false),
+  };
+})();
+
+
 
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -2785,28 +3144,12 @@ async function init() {
   // Iniciar na capa
   mostrarCapa();
 
-  // Tentar Gist silenciosamente
-  const token  = localStorage.getItem(GIST_TOK_KEY);
-  const gistId = localStorage.getItem(GIST_ID_KEY);
-  if (token && gistId) {
-    const ok = await loadGistSilent();
-    if (ok) { renderCapa(); toast('Dados sincronizados do Gist!'); }
-  }
+  // Tela já desenhada com os dados locais; o Gist é verificado em segundo plano
+  setSyncIndicador(!localStorage.getItem(GIST_TOK_KEY) ? 'local'
+                   : localStorage.getItem(PEND_KEY) === '1' ? 'pendente' : 'ok');
+  reconciliarComGist();
 }
 
-async function loadGistSilent() {
-  const token  = localStorage.getItem(GIST_TOK_KEY);
-  const gistId = localStorage.getItem(GIST_ID_KEY);
-  if (!token || !gistId) return false;
-  try {
-    const r = await fetch(`https://api.github.com/gists/${gistId}`,
-                          { headers:{ Authorization:`token ${token}` } });
-    const d = await r.json();
-    const c = d?.files?.['diario_professor.json']?.content;
-    if (c) { state = deepMerge(state, JSON.parse(c)); renderAll(); return true; }
-  } catch(e) {}
-  return false;
-}
 
 init();
 </script>
