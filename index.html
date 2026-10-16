@@ -255,6 +255,15 @@
   .badge-b01 { background:#3d8ef033; color:var(--accent); }
   .badge-b02 { background:#27c98f33; color:var(--accent2); }
 
+  /* ── AVISO DE PORTAL DESATUALIZADO (v1.8) ── */
+  .aviso-portal { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #f0a03018;
+                  border: 1px solid var(--warn); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
+                  font-size: .84rem; line-height: 1.5; }
+  .aviso-portal > span { flex: 1; min-width: 200px; }
+  .aviso-portal b { color: var(--warn); }
+  .dc-selo { display: inline-block; margin-left: 8px; font-size: .64rem; font-weight: 700; color: var(--warn);
+             border: 1px solid var(--warn); border-radius: 20px; padding: 0 8px; letter-spacing: 0; text-transform: none; }
+
   /* ── INDICADOR DE SINCRONIZAÇÃO ── */
   .sync-ind {
     position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 400;
@@ -345,7 +354,7 @@
     .prob-wrap { display: none !important; }
     .sit-col-print { display: table-cell !important; }
     .no-print { display: none !important; }
-    .sync-ind, .fab { display: none !important; }
+    .sync-ind, .fab, #aviso-portal { display: none !important; }
     .print-only { display: block !important; }
     @page { margin: 15mm; size: A4 landscape; }
   }
@@ -507,6 +516,7 @@
   </div>
 
   <main>
+  <div id="aviso-portal"></div>
 
 <!-- ══ NOTAS ══ -->
 <section class="section active" id="tab-notas">
@@ -1144,6 +1154,7 @@ function saveAll() {
     return;
   }
   agendarSync();
+  try { renderAvisoPortal(); } catch (e) {}   // cada alteração reavalia se o portal ficou desatualizado
 }
 
 function agendarSync(ms = 1500) {
@@ -1631,7 +1642,7 @@ function renderCapa() {
     card.className = 'disc-card';
     card.onclick = () => abrirDisc(d.id);
     card.innerHTML = `
-      <div class="dc-codigo">${d.codigo}</div>
+      <div class="dc-codigo">${d.codigo}${_seloPortal(d.id)}</div>
       <div class="dc-nome">${d.nome}</div>
       ${d.sufixo ? `<div class="dc-sufixo">${d.sufixo}</div>` : '<div class="dc-sufixo" style="margin-bottom:14px"></div>'}
       ${totalAlunos > 0 ? `
@@ -2829,6 +2840,9 @@ async function publicarPortal(incluir){
     if (!r.ok) throw new Error(d.message || ('HTTP ' + r.status));
     p.gistId = d.id;
     p.owner  = (d.owner && d.owner.login) || p.owner;
+    p.impressoes = {};
+    Object.keys(p.publicados).forEach(k => { const [di, s] = k.split('|'); p.impressoes[k] = impressaoPortal(di, s); });
+    p.ultimaPublicacao = new Date().toISOString();
     saveAll();
     log.innerHTML = `<span style="color:var(--accent2)">✓ Portal atualizado: ${mats.length} aluno(s), ${Object.keys(p.publicados).length} disciplina(s) publicada(s).</span>
       O GitHub pode levar alguns minutos para refletir a atualização.`;
@@ -2847,11 +2861,7 @@ function renderPortal(){
   const pub   = p.publicados[portalKey()];
   const url   = portalURL();
   document.getElementById('portal-ctx').textContent = disc ? `${disc.codigo} · ${ctx.ano}.${ctx.semestre}` : '';
-  document.getElementById('portal-status').innerHTML = pub
-    ? `<span style="color:var(--accent2);font-weight:700">● Publicada no portal</span>
-       <span style="color:var(--muted)"> — última publicação em ${new Date(pub).toLocaleString('pt-BR')}</span>`
-    : `<span style="color:var(--warn);font-weight:700">○ Não publicada</span>
-       <span style="color:var(--muted)"> — os alunos ainda não veem esta disciplina.</span>`;
+  document.getElementById('portal-status').innerHTML = _statusPortalHTML();
 
   const qr = document.getElementById('portal-qr');
   const lk = document.getElementById('portal-link');
@@ -3385,6 +3395,7 @@ async function importarMapaFrequencia(file) {
   return `✓ ${_esc(file.name)} → frequência de <b>${nAl}</b> alunos (carga horária ${d.ch} h; limite de faltas ${d.ch * 0.25} h).` +
     (acima ? ` <span style="color:var(--danger);font-weight:700">${acima} acima de 25%.</span>` : '') +
     (alerta ? ` <span style="color:var(--warn);font-weight:700">${alerta} entre 20% e 25%.</span>` : '') +
+    `<br><small style="color:var(--muted)">Para os alunos verem a frequência, publique em Portal do Aluno.</small>` +
     (fora.length ? `<br><small style="color:var(--warn)">No mapa, mas não cadastrados nesta disciplina: ${fora.join(', ')}</small>` : '') +
     (semMapa.length ? `<br><small style="color:var(--warn)">Cadastrados, mas ausentes do mapa: ${semMapa.join(', ')}</small>` : '');
 }
@@ -3406,6 +3417,71 @@ function setCH(id, valor) {
   _disc(id).ch = v; saveAll(); toast(`Carga horária: ${v} h (limite de faltas ${v * 0.25} h).`);
 }
 
+
+// ══════════════════════════════════════════════════════════
+//  PORTAL DESATUALIZADO (v1.8)
+//  "Impressão digital" do conteúdo que os alunos veriam (notas, frequência, critério,
+//  alunos e códigos), guardada a cada publicação e comparada com o estado atual.
+// ══════════════════════════════════════════════════════════
+function _hashStr(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h.toString(36) + '.' + s.length.toString(36);
+}
+function impressaoPortal(discId, sk) {
+  const p = portalCfg();
+  const regs = _registrosContexto(discId, sk).map(r => [r.matricula, r.registro, p.codigos[r.matricula] || '']);
+  regs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  return _hashStr(JSON.stringify(regs));
+}
+// 'nao' = não publicada · 'ok' = em dia · 'mudou' = alterada após publicar · 'antiga' = publicada por versão sem controle
+function estadoPortal(discId = ctx.discId, sk = semKey()) {
+  const p = portalCfg(), k = discId + '|' + sk;
+  if (!p.publicados[k]) return 'nao';
+  const imp = (p.impressoes || {})[k];
+  if (!imp) return 'antiga';
+  return imp === impressaoPortal(discId, sk) ? 'ok' : 'mudou';
+}
+function _textoPortal(estado) {
+  const quando = portalCfg().ultimaPublicacao || portalCfg().publicados[portalKey()];
+  const em = quando ? ` (${new Date(quando).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).replace(',', ' às')})` : '';
+  if (estado === 'mudou')  return `<b>Portal desatualizado.</b> Notas, frequência ou alunos mudaram desde a última publicação${em}. Os alunos ainda veem a versão anterior.`;
+  if (estado === 'antiga') return `<b>Portal possivelmente desatualizado.</b> A última publicação${em} foi feita por uma versão anterior do DiárioProf, que não registrava o conteúdo publicado. Publique de novo para garantir.`;
+  return '';
+}
+function renderAvisoPortal() {
+  const el = document.getElementById('aviso-portal');
+  if (!el) return;
+  const app = document.getElementById('tela-app');
+  const naAbaPortal = document.getElementById('tab-portal')?.classList.contains('active');
+  const est = (app && app.classList.contains('active') && ctx.discId) ? estadoPortal() : 'nao';
+  if ((est === 'mudou' || est === 'antiga') && !naAbaPortal) {
+    el.innerHTML = `<div class="aviso-portal"><span>${_textoPortal(est)}</span>
+      <button class="btn btn-warn btn-sm" onclick="publicarDoAviso(this)">Publicar agora</button></div>`;
+  } else el.innerHTML = '';
+}
+async function publicarDoAviso(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Publicando…'; }
+  const ok = await publicarPortal(true);
+  if (ok) toast('Portal atualizado. Os alunos verão a nova versão em alguns minutos.');
+  else { if (btn) { btn.disabled = false; btn.textContent = 'Publicar agora'; } ui.avisar('Não foi possível publicar. Abra a aba Portal do Aluno para ver o motivo.', { titulo: 'Portal do Aluno' }); }
+  renderAvisoPortal();
+}
+function _statusPortalHTML() {
+  const est = estadoPortal(), p = portalCfg();
+  const quando = p.ultimaPublicacao || p.publicados[portalKey()];
+  const em = quando ? new Date(quando).toLocaleString('pt-BR') : '';
+  if (est === 'nao') return `<span style="color:var(--warn);font-weight:700">○ Não publicada</span>
+       <span style="color:var(--muted)"> — os alunos ainda não veem esta disciplina.</span>`;
+  if (est === 'ok') return `<span style="color:var(--accent2);font-weight:700">● Publicada e em dia</span>
+       <span style="color:var(--muted)"> — última publicação em ${em}</span>`;
+  return `<div class="aviso-portal" style="margin:0"><span>${_textoPortal(est)}</span></div>`;
+}
+function _seloPortal(discId) {
+  const est = estadoPortal(discId, semKey());
+  return (est === 'mudou' || est === 'antiga') ? '<span class="dc-selo">portal desatualizado</span>' : '';
+}
+
 // ══════════════════════════════════════════════════════════
 //  TABS / MODAL / TOAST / UTIL
 // ══════════════════════════════════════════════════════════
@@ -3417,6 +3493,7 @@ function switchTab(name, btn) {
   if (name === 'relatorio') renderRelatorio();
   if (name === 'analytics') renderAnalytics();
   if (name === 'portal')    renderPortal();
+  renderAvisoPortal();
   if (name === 'config')    renderConfig();
   if (name === 'importar')  renderAlunosMgr();
 }
@@ -3505,6 +3582,7 @@ dropZone.addEventListener('drop', e => {
 // ══════════════════════════════════════════════════════════
 //  RENDER ALL
 function renderAll() {
+  renderAvisoPortal();
   renderNotas();
   renderDiario();
   renderAlunosMgr();
