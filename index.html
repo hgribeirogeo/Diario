@@ -522,27 +522,11 @@
     </div>
     <div style="margin-bottom:10px;font-size:.77rem;color:var(--muted)">
       <b style="color:var(--text)">Fórmulas:</b>
-      MT = Média(T1…T4) · N1 = Média(P1,P2) · N2 = Média(MT,P3) · MF = Média(N1,N2)
+      <span id="notas-formula"></span>
     </div>
     <div class="table-wrap">
       <table id="notas-table">
-        <thead>
-          <tr class="th-group">
-            <th rowspan="2" style="text-align:left">Matrícula</th>
-            <th rowspan="2" style="text-align:left">Nome</th>
-            <th colspan="3">Seminários</th>
-            <th colspan="4">Relatórios</th>
-            <th colspan="4" style="color:var(--accent)">Calculados</th>
-          </tr>
-          <tr>
-            <th>P1</th><th>P2</th><th>P3</th>
-            <th>T1</th><th>T2</th><th>T3</th><th>T4</th>
-            <th style="color:var(--accent)">MT</th>
-            <th style="color:var(--accent)">N1</th>
-            <th style="color:var(--accent)">N2</th>
-            <th style="color:var(--accent)">MF</th>
-          </tr>
-        </thead>
+        <thead id="notas-head"></thead>
         <tbody id="notas-body"></tbody>
         <tfoot id="notas-footer"></tfoot>
       </table>
@@ -564,12 +548,13 @@
 <!-- ══ IMPORTAR ══ -->
 <section class="section" id="tab-importar">
   <div class="card">
-    <div class="card-title">Importar Lista de Frequência do SIGAA (PDF)</div>
+    <div class="card-title">Importar do SIGAA (PDF)</div>
     <div class="drop-area" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
       <div class="icon">📄</div>
       <div style="font-weight:600">Clique ou arraste o PDF aqui</div>
       <div style="font-size:.76rem;margin-top:6px;color:var(--muted)">
-        listapresenca_EEC0274_2026_2_B01.pdf — importa matrícula + nome dos alunos
+        <b>Lista de presença</b> (listapresenca_….pdf) — matrícula e nome dos alunos<br>
+        <b>Mapa de frequência</b> (mapa_….pdf) — horas de falta de cada aluno; importe um novo sempre que quiser atualizar
       </div>
     </div>
     <input type="file" id="pdf-input" accept=".pdf" multiple style="display:none"
@@ -617,24 +602,7 @@
 
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr class="th-group">
-            <th rowspan="2" style="text-align:left">Turma</th>
-            <th rowspan="2" style="text-align:left">Nome</th>
-            <th colspan="3">Seminários</th>
-            <th colspan="4">Relatórios</th>
-            <th colspan="3" style="color:var(--accent)">Calculados</th>
-            <th rowspan="2" class="no-print">Situação</th>
-            <th rowspan="2" class="sit-col-print" style="display:none">Situação</th>
-          </tr>
-          <tr>
-            <th>P1</th><th>P2</th><th>P3</th>
-            <th>T1</th><th>T2</th><th>T3</th><th>T4</th>
-            <th style="color:var(--accent)">N1</th>
-            <th style="color:var(--accent)">N2</th>
-            <th style="color:var(--accent)">MF</th>
-          </tr>
-        </thead>
+        <thead id="rel-head"></thead>
         <tbody id="rel-tbody"></tbody>
       </table>
     </div>
@@ -645,20 +613,15 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px;color:#333">
         <div>
           <b>Avaliações:</b><br>
-          P1, P2 — Seminários 1 e 2<br>
-          P3 — Seminário 3<br>
-          T1 a T4 — Relatórios de campo 1 a 4<br>
+          <span id="leg-aval"></span><br>
           <br>
           <b>Campos em branco</b> = não entregue (vale 0 no cálculo)
         </div>
         <div>
           <b>Cálculo das notas:</b><br>
-          N1 = (P1 + P2) / 2<br>
-          MT = (T1 + T2 + T3 + T4) / 4<br>
-          N2 = (MT + P3) / 2<br>
-          MF = (N1 + N2) / 2<br>
+          <span id="leg-calc"></span><br>
           <br>
-          <b>Aprovação:</b> MF ≥ 6,0
+          <b>Aprovação:</b> <span id="leg-aprov">MF ≥ 6,0</span>
         </div>
       </div>
       <div style="margin-top:8px;font-size:9px;color:#888">
@@ -1063,9 +1026,9 @@ function resp(o) {
 //  CATÁLOGO DE DISCIPLINAS
 // ══════════════════════════════════════════════════════════
 const DISC_DEFAULT = [
-  { id: 'EEC0274_Civil',     codigo: 'EEC0274', nome: 'Topografia e Geodésia', sufixo: 'Civil' },
-  { id: 'EEC0273_Ambiental', codigo: 'EEC0273', nome: 'Topografia e Geodésia', sufixo: 'Ambiental' },
-  { id: 'EEC0296_SR',        codigo: 'EEC0296', nome: 'Sensoriamento Remoto',  sufixo: '' },
+  { id: 'EEC0274_Civil',     codigo: 'EEC0274', nome: 'Topografia e Geodésia', sufixo: 'Civil',     esquema: 'topo4',    ch: 96 },
+  { id: 'EEC0273_Ambiental', codigo: 'EEC0273', nome: 'Topografia e Geodésia', sufixo: 'Ambiental', esquema: 'topo4',    ch: 64 },
+  { id: 'EEC0296_SR',        codigo: 'EEC0296', nome: 'Sensoriamento Remoto',  sufixo: '',          esquema: 'sem1rel3', ch: 64 },
 ];
 
 // ══════════════════════════════════════════════════════════
@@ -1308,6 +1271,7 @@ function _adotarRemoto(remoto) {
   state = deepMerge(JSON.parse(_ESTADO_INICIAL), remoto);
   const ids = state.disciplinas.map(d => d.id);
   DISC_DEFAULT.forEach(d => { if (!ids.includes(d.id)) state.disciplinas.unshift(d); });
+  normalizarDisciplinas();
   if (!state.disciplinas.find(d => d.id === ctx.discId)) ctx.discId = state.disciplinas[0]?.id;
   _mailCfgDoEstado();
   _gravarLocal();
@@ -1551,6 +1515,7 @@ function importJSON() {
   try {
     const data = JSON.parse(_jsonFileContent);
     state = deepMerge(state, data);
+    normalizarDisciplinas();
     // Após import, resetar contexto para valores válidos
     ctx.discId = state.disciplinas[0]?.id || 'EEC0274_Civil';
     ctx.turmaId = 'B01';
@@ -1658,7 +1623,7 @@ function renderCapa() {
     const notas  = dados?.notas  || {};
     const totalAlunos = Object.values(turmas).reduce((s,t) => s + t.alunos.length, 0);
     const mfs = Object.values(turmas).flatMap(t =>
-      t.alunos.map(a => _calcObj(notas[a.matricula] || {}).MF)   // mesma regra das outras telas: não entregue = 0
+      t.alunos.map(a => _calcObj(notas[a.matricula] || {}, d.id).MF)   // mesma regra das outras telas: não entregue = 0
     );
     const aprov = mfs.filter(v => v >= 6).length;
 
@@ -1753,7 +1718,7 @@ function avgZ(...vals) {
 // Quantas das 7 avaliações estão preenchidas
 function entregasFeitas(mat) {
   const n = ctxNotas()[mat] || {};
-  return TODOS_CAMPOS.filter(k => preenchido(n[k])).length;
+  return camposAtivos().filter(k => preenchido(n[k])).length;
 }
 
 // Campos de avaliação — semestre tem exatamente estes 7
@@ -1775,14 +1740,101 @@ function preenchido(v) {
   return !isNaN(n);
 }
 
+// ══════════════════════════════════════════════════════════
+//  ESQUEMAS DE AVALIAÇÃO POR DISCIPLINA (v1.7)
+//  Cada disciplina aponta para um esquema. Os resultados mantêm os nomes MT, N1, N2 e MF.
+// ══════════════════════════════════════════════════════════
+const ESQUEMAS = {
+  topo4: {
+    nome: '3 atividades avaliativas (seminários) + 4 relatórios',
+    campos: [
+      { k: 'P1', nome: 'Seminário 1', grupo: 'Seminários' }, { k: 'P2', nome: 'Seminário 2', grupo: 'Seminários' },
+      { k: 'P3', nome: 'Seminário 3', grupo: 'Seminários' },
+      { k: 'T1', nome: 'Relatório 1', grupo: 'Relatórios' }, { k: 'T2', nome: 'Relatório 2', grupo: 'Relatórios' },
+      { k: 'T3', nome: 'Relatório 3', grupo: 'Relatórios' }, { k: 'T4', nome: 'Relatório 4', grupo: 'Relatórios' } ],
+    ordem: ['P1', 'T1', 'P2', 'T2', 'T3', 'P3', 'T4'],
+    calc: n => { const v = valOuZero;
+      const MT = (v(n.T1) + v(n.T2) + v(n.T3) + v(n.T4)) / 4, N1 = (v(n.P1) + v(n.P2)) / 2, N2 = (MT + v(n.P3)) / 2;
+      return { MT, N1, N2, MF: (N1 + N2) / 2 }; },
+    linhas: [['N1 (P1 e P2)', 'N1'], ['Média dos relatórios (MT)', 'MT'], ['N2 (MT e P3)', 'N2'], ['Média final (MF)', 'MF']],
+    formula: ['N1 = (P1 + P2) / 2', 'MT = (T1 + T2 + T3 + T4) / 4', 'N2 = (MT + P3) / 2', 'MF = (N1 + N2) / 2'],
+  },
+  sem1rel3: {
+    nome: '1 seminário + 3 relatórios',
+    campos: [
+      { k: 'P1', nome: 'Seminário', grupo: 'Seminário' },
+      { k: 'T1', nome: 'Relatório 1', grupo: 'Relatórios' }, { k: 'T2', nome: 'Relatório 2', grupo: 'Relatórios' },
+      { k: 'T3', nome: 'Relatório 3', grupo: 'Relatórios' } ],
+    ordem: ['P1', 'T1', 'T2', 'T3'],
+    calc: n => { const v = valOuZero;
+      const MT = (v(n.T1) + v(n.T2) + v(n.T3)) / 3, N1 = v(n.P1), N2 = MT;
+      return { MT, N1, N2, MF: (N1 + N2) / 2 }; },
+    linhas: [['N1 (seminário)', 'N1'], ['N2 (média dos relatórios)', 'N2'], ['Média final (MF)', 'MF']],
+    formula: ['N1 = Seminário', 'N2 = (T1 + T2 + T3) / 3', 'MF = (N1 + N2) / 2'],
+  },
+};
+const CH_PADRAO = 64;
+function _disc(discId) { return state.disciplinas.find(d => d.id === discId) || {}; }
+function esquemaDe(discId) { return ESQUEMAS[_disc(discId).esquema] || ESQUEMAS.topo4; }
+function esq() { return esquemaDe(ctx.discId); }
+function camposAtivos(discId = ctx.discId) { return esquemaDe(discId).campos.map(c => c.k); }
+function nomeCampo(k, discId = ctx.discId) { return (esquemaDe(discId).campos.find(c => c.k === k) || {}).nome || k; }
+function normalizarDisciplinas() {
+  state.disciplinas.forEach(d => {
+    const p = DISC_DEFAULT.find(x => x.id === d.id) || {};
+    if (!d.esquema || !ESQUEMAS[d.esquema]) d.esquema = p.esquema || 'topo4';
+    if (!(+d.ch > 0)) d.ch = p.ch || CH_PADRAO;
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  FREQUÊNCIA E SITUAÇÃO (v1.7)
+//  Critério UFG: reprova por falta acima de 25% da carga horária total.
+// ══════════════════════════════════════════════════════════
+function freqDe(mat, discId = ctx.discId, sk = semKey()) {
+  const f = state.dados?.[discId]?.[sk]?.freq;
+  if (!f || !f.alunos || !f.alunos[mat]) return null;
+  const ch = +_disc(discId).ch || 0;
+  if (!ch) return null;
+  const h = +f.alunos[mat].faltasH || 0, limite = ch * 0.25;
+  return { faltasH: h, ch, pct: h / ch * 100, limiteH: limite, restanteH: Math.max(0, limite - h),
+           reprova: h > limite, alerta: h > ch * 0.20, importadoEm: f.importadoEm };
+}
+function _pctBR(v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ','); }
+function situacaoDe(n, mat, discId = ctx.discId, sk = semKey()) {
+  const campos = camposAtivos(discId), feitas = campos.filter(k => preenchido(n[k])).length;
+  const MF = esquemaDe(discId).calc(n).MF, fr = freqDe(mat, discId, sk);
+  if (fr && fr.reprova)        return { cod: 'REP_FREQ',  txt: 'REPROVADO POR FREQUÊNCIA', cor: '#c0392b', feitas, total: campos.length };
+  if (feitas === campos.length) return MF >= 6
+    ? { cod: 'APROVADO',  txt: 'APROVADO',  cor: '#1a7a4a', feitas, total: campos.length }
+    : { cod: 'REPROVADO', txt: 'REPROVADO', cor: '#c0392b', feitas, total: campos.length };
+  return { cod: 'ANDAMENTO', txt: 'EM ANDAMENTO', cor: '#888', feitas, total: campos.length };
+}
+// Média necessária nas avaliações pendentes para MF = 6 (a MF é linear nas notas)
+function notaNecessaria(n, discId = ctx.discId) {
+  const e = esquemaDe(discId), pend = e.campos.map(c => c.k).filter(k => !preenchido(n[k]));
+  if (!pend.length) return null;
+  const b0 = { ...n }, b10 = { ...n };
+  pend.forEach(k => { b0[k] = 0; b10[k] = 10; });
+  const m0 = e.calc(b0).MF, m10 = e.calc(b10).MF;
+  const x = (6 - m0) / ((m10 - m0) / 10);
+  return { x: Math.ceil(x * 100 - 1e-9) / 100, pendentes: pend.length };
+}
+function celulaFaltas(mat) {
+  const fr = freqDe(mat);
+  if (!fr) return '<span style="color:var(--muted)">—</span>';
+  const cor = fr.reprova ? 'var(--danger)' : fr.alerta ? 'var(--warn)' : 'var(--muted)';
+  return `<span style="color:${cor};font-weight:${fr.alerta ? 700 : 400}" title="${fr.faltasH} h de ${fr.ch} h; limite ${fr.limiteH} h (25%)">${fr.faltasH} h · ${_pctBR(fr.pct)}%</span>`;
+}
+function _cabecalhoCampos() {
+  const campos = esq().campos, grupos = [];
+  campos.forEach(c => { const g = grupos[grupos.length - 1]; if (g && g.nome === c.grupo) g.n++; else grupos.push({ nome: c.grupo, n: 1 }); });
+  return { grupos, campos };
+}
+
 function calcNotas(mat) {
-  const n  = ctxNotas()[mat] || {};
-  // Todos os campos vazios tratados como zero
-  const MT = (valOuZero(n.T1) + valOuZero(n.T2) + valOuZero(n.T3) + valOuZero(n.T4)) / 4;
-  const N1 = (valOuZero(n.P1) + valOuZero(n.P2)) / 2;
-  const N2 = (MT + valOuZero(n.P3)) / 2;
-  const MF = (N1 + N2) / 2;
-  return { MT, N1, N2, MF };
+  // Campos vazios valem zero; a fórmula vem do esquema da disciplina
+  return esq().calc(ctxNotas()[mat] || {});
 }
 
 // Alias — mesma lógica, mantido para compatibilidade com probBarHTML
@@ -1792,34 +1844,23 @@ function calcProjecao(mat) {
 
 // Gera o HTML da barra de probabilidade
 function probBarHTML(mat) {
-  const n       = ctxNotas()[mat] || {};
-  const campos  = ['P1','P2','P3','T1','T2','T3','T4'];
-  const feitas  = campos.filter(k => n[k] !== undefined && n[k] !== '').length;
-  const total   = campos.length;
-  const { MF, MT, N1, N2 } = calcNotas(mat);
-  const proj    = MF;   // calcNotas já trata vazios como zero
-  const pct     = Math.min(100, Math.round((proj / 10) * 100));
-  const aprovMin = 60; // 60% = nota 6
-
-  // Cor da barra
-  const cor = proj >= 6 ? 'var(--accent2)' : proj >= 4 ? 'var(--warn)' : 'var(--danger)';
-
-  // Status textual
+  const n   = ctxNotas()[mat] || {};
+  const sit = situacaoDe(n, mat);
+  const { MF } = calcNotas(mat);
+  const pct = Math.min(100, Math.round(MF * 10));
+  const cor = MF >= 6 ? 'var(--accent2)' : MF >= 4 ? 'var(--warn)' : 'var(--danger)';
   let label, sub;
-  if (feitas === 0) {
-    label = '<span style="color:var(--muted)">Sem entregas</span>';
-    sub   = '0 de 7 avaliações';
-  } else if (feitas < total) {
-    label = `<span style="color:${cor}">Projeção: ${proj.toFixed(2)}</span>`;
-    sub   = `${feitas} de ${total} · ${proj >= 6 ? '✓ aprovando' : '✗ reprovando'}`;
+  if (sit.cod === 'REP_FREQ') {
+    label = '<span class="sit-reprovado">⛔ Reprovado por frequência</span>'; sub = 'faltas acima de 25%';
+  } else if (sit.feitas === 0) {
+    label = '<span style="color:var(--muted)">Sem entregas</span>'; sub = `0 de ${sit.total} avaliações`;
+  } else if (sit.cod === 'ANDAMENTO') {
+    label = `<span style="color:${cor}">Projeção: ${MF.toFixed(2)}</span>`;
+    sub = `${sit.feitas} de ${sit.total} · ${MF >= 6 ? '✓ aprovando' : '✗ reprovando'}`;
   } else {
-    // Todas entregues — resultado final
-    label = MF >= 6
-      ? '<span class="sit-aprovado">✅ Aprovado</span>'
-      : '<span class="sit-reprovado">❌ Reprovado</span>';
-    sub   = `MF = ${MF !== null ? MF.toFixed(2) : '—'}`;
+    label = sit.cod === 'APROVADO' ? '<span class="sit-aprovado">✅ Aprovado</span>' : '<span class="sit-reprovado">❌ Reprovado</span>';
+    sub = `MF = ${MF.toFixed(2)}`;
   }
-
   return `<div class="prob-wrap">
     <div class="prob-bar-track">
       <div class="prob-bar-fill" style="width:${pct}%;background:${cor}"></div>
@@ -1874,9 +1915,26 @@ async function addTurma() {
 // ══════════════════════════════════════════════════════════
 //  RENDER NOTAS
 // ══════════════════════════════════════════════════════════
+function _renderHeadNotas() {
+  const { grupos, campos } = _cabecalhoCampos();
+  document.getElementById('notas-head').innerHTML = `
+    <tr class="th-group">
+      <th rowspan="2" style="text-align:left">Matrícula</th>
+      <th rowspan="2" style="text-align:left">Nome</th>
+      ${grupos.map(g => `<th colspan="${g.n}">${g.nome}</th>`).join('')}
+      <th colspan="4" style="color:var(--accent)">Calculados</th>
+      <th rowspan="2" title="Horas de falta e percentual da carga horária total (mapa do SIGAA)">Faltas</th>
+    </tr>
+    <tr>${campos.map(cp => `<th title="${cp.nome}">${cp.k}</th>`).join('')}
+      <th style="color:var(--accent)">MT</th><th style="color:var(--accent)">N1</th>
+      <th style="color:var(--accent)">N2</th><th style="color:var(--accent)">MF</th></tr>`;
+  const f = document.getElementById('notas-formula'); if (f) f.textContent = esq().formula.join(' · ');
+}
+
 function renderNotas() {
   buildTurmaSelector('turma-sel-notas');
-  const alunos = ctxAlunos();
+  _renderHeadNotas();
+  const alunos = ctxAlunos(), campos = camposAtivos();
   const body   = document.getElementById('notas-body');
   body.innerHTML = '';
 
@@ -1888,12 +1946,12 @@ function renderNotas() {
     tr.innerHTML = `
       <td>${a.matricula}</td>
       <td>${a.nome}</td>
-      ${['P1','P2','P3','T1','T2','T3','T4'].map(k => `
+      ${campos.map(k => `
         <td style="text-align:center">
           <input class="nota${n[k]!==undefined&&n[k]!==''?' filled':''}"
             type="number" min="0" max="10" step="0.1"
             value="${n[k]!==undefined&&n[k]!==''?n[k]:''}"
-            data-mat="${a.matricula}" data-campo="${k}"
+            data-mat="${a.matricula}" data-campo="${k}" title="${nomeCampo(k)}"
             onchange="onNotaChange(this)"
             oninput="this.className='nota'+(this.value!==''?' filled':'')">
         </td>`).join('')}
@@ -1901,6 +1959,7 @@ function renderNotas() {
       <td class="calc">${fmt(N1, true)}</td>
       <td class="calc">${fmt(N2, true)}</td>
       <td class="calc ${mfCls}" style="font-size:.88rem">${fmt(MF, true)}</td>
+      <td class="fcell" style="text-align:center;white-space:nowrap;font-size:.76rem">${celulaFaltas(a.matricula)}</td>
     `;
     body.appendChild(tr);
   });
@@ -1943,7 +2002,7 @@ function renderStatsNotas(alunos) {
 }
 
 function renderFooterNotas(alunos) {
-  const campos = ['P1','P2','P3','T1','T2','T3','T4'];
+  const campos = camposAtivos();
   const avgs = campos.map(c => {
     const vals = alunos.map(a => ctxNotas()[a.matricula]?.[c]).filter(v => v!==undefined&&v!=='');
     return vals.length ? (vals.reduce((a,b)=>a+parseFloat(b),0)/vals.length).toFixed(2) : '—';
@@ -1952,21 +2011,21 @@ function renderFooterNotas(alunos) {
     <tr style="border-top:2px solid var(--accent);background:var(--surface)">
       <td colspan="2" style="font-weight:700;color:var(--muted);padding:8px 10px">Média turma</td>
       ${avgs.map(v=>`<td class="calc">${v}</td>`).join('')}
-      <td colspan="4"></td>
+      <td colspan="5"></td>
     </tr>`;
 }
 
 function exportCSV() {
   const alunos = ctxAlunos();
-  const rows = [['Matrícula','Nome','P1','P2','P3','T1','T2','T3','T4','MT','N1','N2','MF']];
+  const campos = camposAtivos();
+  const dec = v => String(v).replace('.', ',');   // separador ';' implica Excel em português: decimal com vírgula
+  const rows = [['Matrícula','Nome', ...campos, 'MT','N1','N2','MF','Faltas (h)','Faltas (%)']];
   alunos.forEach(a => {
     const n = ctxNotas()[a.matricula] || {};
     const { MT, N1, N2, MF } = calcNotas(a.matricula);
-    rows.push([a.matricula,a.nome,
-      n.P1??'',n.P2??'',n.P3??'',n.T1??'',n.T2??'',n.T3??'',n.T4??'',
-      MT!==null?MT.toFixed(2):'',N1!==null?N1.toFixed(2):'',
-      N2!==null?N2.toFixed(2):'',MF!==null?MF.toFixed(2):''
-    ]);
+    const fr = freqDe(a.matricula);
+    rows.push([a.matricula, a.nome, ...campos.map(k => preenchido(n[k]) ? dec(n[k]) : ''),
+      ...[MT, N1, N2, MF].map(v => dec(v.toFixed(2))), fr ? dec(fr.faltasH) : '', fr ? _pctBR(fr.pct) : '']);
   });
   const csv = rows.map(r=>r.join(';')).join('\n');
   const blob = new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
@@ -2053,6 +2112,7 @@ async function handlePDFUpload(event) {
     log.innerHTML = `⏳ Lendo ${file.name}...`;
     try {
       const text = await extractPDFText(file);
+      if (_ehMapaFrequencia(text)) { msgs.push(await importarMapaFrequencia(file)); continue; }
       log.innerHTML = `⏳ Parseando ${file.name} (${text.length} chars)...`;
       const { turmaId, alunos } = parseListaSIGAA(text, file.name);
       if (!alunos.length) {
@@ -2167,6 +2227,7 @@ function confirmAddStudent() {
 //  PDF / IMPRESSÃO
 // ══════════════════════════════════════════════════════════
 function gerarPDF() {
+  renderRelatorio();
   const disc = state.disciplinas.find(d => d.id === ctx.discId);
   const titulo = disc ? `${disc.codigo} · ${disc.nome}${disc.sufixo?' — '+disc.sufixo:''}` : 'Relatório';
   document.getElementById('print-titulo').textContent = titulo + ` · ${ctx.ano}.${ctx.semestre}`;
@@ -2174,23 +2235,13 @@ function gerarPDF() {
     `Disciplina ministrada pelo Prof. Hugo José Ribeiro — UFG/EECA`;
   document.getElementById('print-data').textContent =
     new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  // Preencher coluna de situação para impressão
-  document.querySelectorAll('#rel-tbody tr').forEach(tr => {
-    const mfCell = tr.querySelector('td:nth-child(12)');
-    const mf = mfCell ? parseFloat(mfCell.textContent) : NaN;
-    let printCols = tr.querySelectorAll('.sit-col-print');
-    if (!printCols.length) {
-      const td = document.createElement('td');
-      td.className = 'sit-col-print';
-      td.style.display = 'none';
-      td.style.textAlign = 'center';
-      td.style.fontWeight = '700';
-      tr.appendChild(td);
-      printCols = [td];
-    }
-    printCols[0].textContent = isNaN(mf) ? '—' : mf >= 6 ? 'APROVADO' : 'REPROVADO';
-    printCols[0].style.color = isNaN(mf) ? '#888' : mf >= 6 ? '#1a7a4a' : '#c0392b';
-  });
+  // A coluna "Situação" impressa já vem pronta de renderRelatorio (não é recalculada só pela média)
+  const e = esq(), d = _disc(ctx.discId), f = ctxData().freq;
+  document.getElementById('leg-aval').innerHTML = e.campos.map(cp => `${cp.k} — ${cp.nome}`).join('<br>');
+  document.getElementById('leg-calc').innerHTML = e.formula.join('<br>');
+  document.getElementById('leg-aprov').innerHTML =
+    `MF ≥ 6,0 e frequência ≥ 75% (até ${d.ch * 0.25} h de falta em ${d.ch} h)<br><b>Faltas:</b> ` +
+    (f ? `mapa de frequência do SIGAA importado em ${new Date(f.importadoEm).toLocaleDateString('pt-BR')}` : 'frequência ainda não importada');
   window.print();
 }
 
@@ -2199,39 +2250,44 @@ function gerarPDF() {
 // ══════════════════════════════════════════════════════════
 function renderRelatorio() {
   const turmas = ctxTurmas();
+  const { grupos, campos } = _cabecalhoCampos();
+  document.getElementById('rel-head').innerHTML = `
+    <tr class="th-group">
+      <th rowspan="2" style="text-align:left">Turma</th>
+      <th rowspan="2" style="text-align:left">Matrícula</th>
+      ${grupos.map(g => `<th colspan="${g.n}">${g.nome}</th>`).join('')}
+      <th colspan="3" style="color:var(--accent)">Calculados</th>
+      <th rowspan="2">Faltas</th>
+      <th rowspan="2" class="no-print">Situação</th>
+      <th rowspan="2" class="sit-col-print" style="display:none">Situação</th>
+    </tr>
+    <tr>${campos.map(cp => `<th>${cp.k}</th>`).join('')}
+      <th style="color:var(--accent)">N1</th><th style="color:var(--accent)">N2</th><th style="color:var(--accent)">MF</th></tr>`;
   const tbody  = document.getElementById('rel-tbody');
   tbody.innerHTML = '';
   let tot = 0, aprov = 0, reprov = 0, andamento = 0;
 
   Object.entries(turmas).forEach(([tid, t]) => {
     t.alunos.forEach(a => {
-      const n      = ctxNotas()[a.matricula] || {};
-      const { MT, N1, N2, MF } = calcNotas(a.matricula);
-      const feitas = entregasFeitas(a.matricula);
+      const n   = ctxNotas()[a.matricula] || {};
+      const { N1, N2, MF } = calcNotas(a.matricula);
+      const sit = situacaoDe(n, a.matricula);
       tot++;
-      if (feitas === 7 && MF !== null && MF >= 6) aprov++;
-      else if (feitas === 7 && MF !== null && MF < 6) reprov++;
+      if (sit.cod === 'APROVADO') aprov++;
+      else if (sit.cod === 'REPROVADO' || sit.cod === 'REP_FREQ') reprov++;
       else andamento++;
-
-      const mfCls  = feitas === 7 ? (MF >= 6 ? 'ok' : 'fail') : '';
-      const sitTxt = feitas === 7 ? (MF >= 6 ? 'APROVADO' : 'REPROVADO') : 'EM ANDAMENTO';
-      const sitCor = feitas === 7 ? (MF >= 6 ? '#1a7a4a' : '#c0392b') : '#888';
+      const mfCls = sit.feitas === sit.total ? (MF >= 6 ? 'ok' : 'fail') : '';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge badge-b01">${tid}</span></td>
         <td style="font-family:monospace;font-size:.78rem">${a.matricula}</td>
-        <td class="calc">${fmt(n.P1)}</td>
-        <td class="calc">${fmt(n.P2)}</td>
-        <td class="calc">${fmt(n.P3)}</td>
-        <td class="calc">${fmt(n.T1)}</td>
-        <td class="calc">${fmt(n.T2)}</td>
-        <td class="calc">${fmt(n.T3)}</td>
-        <td class="calc">${fmt(n.T4)}</td>
+        ${camposAtivos().map(k => `<td class="calc">${fmt(n[k])}</td>`).join('')}
         <td class="calc">${fmt(N1, true)}</td>
         <td class="calc">${fmt(N2, true)}</td>
-        <td class="calc ${mfCls}">${fmt(MF, true)}</td>
+        <td class="calc mf-cell ${mfCls}">${fmt(MF, true)}</td>
+        <td style="text-align:center;white-space:nowrap;font-size:.76rem">${celulaFaltas(a.matricula)}</td>
         <td class="no-print">${probBarHTML(a.matricula)}</td>
-        <td class="sit-col-print" style="display:none;text-align:center;font-weight:700;color:${sitCor}">${sitTxt}</td>`;
+        <td class="sit-col-print" style="display:none;text-align:center;font-weight:700;color:${sit.cor}">${sit.txt}</td>`;
       tbody.appendChild(tr);
     });
   });
@@ -2267,7 +2323,7 @@ function renderCharts() {
   });
 
   // Média por avaliação
-  const campos = ['P1','P2','P3','T1','T2','T3','T4'];
+  const campos = camposAtivos();
   const mediaAval = campos.map(c => {
     const vals = allAlunos.map(a=>ctxNotas()[a.matricula]?.[c]).filter(v=>v!==undefined&&v!=='');
     return vals.length ? vals.reduce((a,b)=>a+parseFloat(b),0)/vals.length : 0;
@@ -2292,10 +2348,15 @@ function renderCharts() {
 function renderConfig() {
   const div = document.getElementById('config-disciplinas');
   div.innerHTML = state.disciplinas.map((d,i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
       <span style="font-weight:700;color:var(--accent)">${d.codigo}</span>
       <span>${d.nome}${d.sufixo?' — '+d.sufixo:''}</span>
       <span style="flex:1"></span>
+      <select class="form-sel" title="Critério de avaliação" style="max-width:290px" onchange="setEsquema('${d.id}',this.value)">
+        ${Object.entries(ESQUEMAS).map(([k, e]) => `<option value="${k}" ${k === d.esquema ? 'selected' : ''}>${e.nome}</option>`).join('')}
+      </select>
+      <label style="font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:4px" title="Carga horária total: base do percentual de faltas">CH
+        <input type="number" min="1" max="400" value="${d.ch}" style="width:70px" onchange="setCH('${d.id}',this.value)"> h</label>
       ${i >= DISC_DEFAULT.length
         ? `<button class="btn btn-danger btn-sm" onclick="removeDisc('${d.id}')">🗑</button>`
         : '<span style="font-size:.72rem;color:var(--muted)">padrão</span>'}
@@ -2316,7 +2377,7 @@ function confirmNovaDisc() {
   if (!cod || !nome) { ui.avisar('Código e nome são obrigatórios.'); return; }
   const id = cod + (sufixo ? '_' + sufixo.replace(/\s+/g,'') : '');
   if (state.disciplinas.find(d => d.id === id)) { ui.avisar('Essa disciplina já existe.'); return; }
-  state.disciplinas.push({ id, codigo: cod, nome, sufixo });
+  state.disciplinas.push({ id, codigo: cod, nome, sufixo, esquema: 'topo4', ch: CH_PADRAO });
   saveAll();
   closeModal('modal-nova-disc'); renderConfig();
   toast('Disciplina criada!');
@@ -2397,15 +2458,15 @@ function renderAnalytics() {
     ? Object.values(ctxTurmas()).flatMap(t => t.alunos)
     : (ctxTurmas()[anTurmaAtiva]?.alunos || []);
 
-  const CAMPOS = ['P1','P2','P3','T1','T2','T3','T4'];
-  const ORDEM_CRONOLOGICA = ['P1','T1','P2','T2','T3','P3','T4']; // ordem típica de entrega
+  const CAMPOS = camposAtivos();
+  const ORDEM_CRONOLOGICA = esq().ordem; // ordem típica de entrega
 
   // ── 1. KPIs ──
   const mfs   = alunos.map(a => calcNotas(a.matricula).MF);
   const feitas = alunos.map(a => entregasFeitas(a.matricula));
   const comEntrega = alunos.filter((_,i) => feitas[i] > 0);
-  const nAprov  = mfs.filter((m,i) => feitas[i]===7 && m >= 6).length;
-  const nReprov = mfs.filter((m,i) => feitas[i]===7 && m < 6).length;
+  const nAprov  = mfs.filter((m,i) => feitas[i]===CAMPOS.length && m >= 6).length;
+  const nReprov = mfs.filter((m,i) => feitas[i]===CAMPOS.length && m < 6).length;
   const nAndamento = alunos.length - nAprov - nReprov;
   const mediaGeral = comEntrega.length
     ? (comEntrega.map(a=>calcNotas(a.matricula).MF).reduce((a,b)=>a+b,0)/comEntrega.length).toFixed(2)
@@ -2518,10 +2579,11 @@ function renderAnalytics() {
   // ── 5. Correlação seminários × relatórios ──
   const pts = alunos.map(a => {
     const n = ctxNotas()[a.matricula]||{};
-    const semMedia = (valOuZero(n.P1)+valOuZero(n.P2)+valOuZero(n.P3))/3;
-    const relMedia = (valOuZero(n.T1)+valOuZero(n.T2)+valOuZero(n.T3)+valOuZero(n.T4))/4;
-    const temSem = preenchido(n.P1)||preenchido(n.P2)||preenchido(n.P3);
-    const temRel = preenchido(n.T1)||preenchido(n.T2)||preenchido(n.T3)||preenchido(n.T4);
+    const _cP = CAMPOS.filter(k => k[0] === 'P'), _cT = CAMPOS.filter(k => k[0] === 'T');
+    const semMedia = _cP.reduce((s, k) => s + valOuZero(n[k]), 0) / (_cP.length || 1);
+    const relMedia = _cT.reduce((s, k) => s + valOuZero(n[k]), 0) / (_cT.length || 1);
+    const temSem = _cP.some(k => preenchido(n[k]));
+    const temRel = _cT.some(k => preenchido(n[k]));
     return temSem && temRel ? { x: parseFloat(semMedia.toFixed(2)), y: parseFloat(relMedia.toFixed(2)), label: a.nome.split(' ')[0] } : null;
   }).filter(Boolean);
 
@@ -2605,11 +2667,11 @@ function renderAnalytics() {
 
   // ── 8. Comparação entre turmas ──
   const turmasIds  = Object.keys(ctxTurmas());
-  const compLabels = ['P1','P2','P3','T1','T2','T3','T4','MF'];
+  const compLabels = [...CAMPOS, 'MF'];
   const colors     = ['#3d8ef0','#27c98f','#f0a030','#e05555','#a78bfa'];
   const datasets   = turmasIds.map((tid, i) => {
     const al = ctxTurmas()[tid].alunos;
-    const medias = ['P1','P2','P3','T1','T2','T3','T4'].map(k => {
+    const medias = CAMPOS.map(k => {
       const vals = al.map(a=>{const n=ctxNotas()[a.matricula]||{};return preenchido(n[k])?parseFloat(n[k]):null;}).filter(v=>v!==null);
       return vals.length ? parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2)) : 0;
     });
@@ -2688,12 +2750,8 @@ function portalURL(){
 }
 
 // Mesmas fórmulas de calcNotas, sem depender do contexto ativo
-function _calcObj(n){
-  const MT = (valOuZero(n.T1)+valOuZero(n.T2)+valOuZero(n.T3)+valOuZero(n.T4))/4;
-  const N1 = (valOuZero(n.P1)+valOuZero(n.P2))/2;
-  const N2 = (MT+valOuZero(n.P3))/2;
-  const MF = (N1+N2)/2;
-  return { MT, N1, N2, MF };
+function _calcObj(n, discId = ctx.discId){
+  return esquemaDe(discId).calc(n || {});
 }
 function _registrosContexto(discId, sk){
   const dados = state.dados?.[discId]?.[sk];
@@ -2704,15 +2762,21 @@ function _registrosContexto(discId, sk){
   Object.entries(dados.turmas || {}).forEach(([tid, t]) => {
     (t.alunos || []).forEach(a => {
       const n = (dados.notas || {})[a.matricula] || {};
-      const notas = {};
-      TODOS_CAMPOS.forEach(k => { notas[k] = preenchido(n[k]) ? parseFloat(n[k]) : null; });
-      const entregas = TODOS_CAMPOS.filter(k => notas[k] !== null).length;
-      const c = _calcObj(n);
+      const e = esquemaDe(discId), notas = {};
+      e.campos.forEach(cp => { notas[cp.k] = preenchido(n[cp.k]) ? parseFloat(n[cp.k]) : null; });
+      const c = e.calc(n), sit = situacaoDe(n, a.matricula, discId, sk);
+      const fr = freqDe(a.matricula, discId, sk), alvo = notaNecessaria(n, discId);
       out.push({ matricula: a.matricula, registro: {          // nome do aluno NÃO é publicado
         disciplina: `${disc.codigo} · ${disc.nome}${disc.sufixo ? ' — ' + disc.sufixo : ''}`,
         semestre: `${ano}.${sem}`, turma: tid, notas,
+        campos: e.campos.map(cp => ({ k: cp.k, nome: cp.nome, grupo: cp.grupo })),
+        linhas: e.linhas, formula: e.formula,
         MT: +c.MT.toFixed(2), N1: +c.N1.toFixed(2), N2: +c.N2.toFixed(2), MF: +c.MF.toFixed(2),
-        entregas, situacao: entregas === 7 ? (c.MF >= 6 ? 'APROVADO' : 'REPROVADO') : 'EM ANDAMENTO'
+        entregas: sit.feitas, total: sit.total,
+        situacao: sit.cod === 'REP_FREQ' ? 'REPROVADO POR FREQUÊNCIA' : sit.cod === 'ANDAMENTO' ? 'EM ANDAMENTO' : sit.cod,
+        alvo: alvo ? { nota: alvo.x, pendentes: alvo.pendentes } : null,
+        freq: fr ? { faltasH: fr.faltasH, ch: fr.ch, pct: +fr.pct.toFixed(2), limiteH: fr.limiteH,
+                     restanteH: fr.restanteH, importadoEm: fr.importadoEm } : null
       }});
     });
   });
@@ -3182,7 +3246,7 @@ function abrirLancamento() {
   if (!turmas.length) { ui.avisar('Não há alunos nesta disciplina/semestre. Importe a lista de presença primeiro.', { titulo: 'Lançamento rápido' }); return; }
   _lrTurma = turmas.includes(ctx.turmaId) ? ctx.turmaId : turmas[0];
   const al = ctxTurmas()[_lrTurma].alunos;
-  _lrCampo = TODOS_CAMPOS.find(k => al.some(a => !preenchido((ctxNotas()[a.matricula] || {})[k]))) || 'P1';
+  _lrCampo = camposAtivos().find(k => al.some(a => !preenchido((ctxNotas()[a.matricula] || {})[k]))) || 'P1';
   renderLancamento();
   openModal('modal-lanc');
   setTimeout(() => document.querySelector('#lr-lista .lr-in:not(.filled)')?.focus(), 60);
@@ -3192,8 +3256,8 @@ function renderLancamento() {
   const turmas = Object.keys(ctxTurmas()).filter(t => (ctxTurmas()[t].alunos || []).length);
   const al = ctxTurmas()[_lrTurma].alunos;
   const qtd = k => al.filter(a => preenchido((ctxNotas()[a.matricula] || {})[k])).length;
-  document.getElementById('lr-campo').innerHTML = TODOS_CAMPOS.map(k =>
-    `<option value="${k}" ${k === _lrCampo ? 'selected' : ''}>${k} · ${_LR_NOMES[k]} (${qtd(k)}/${al.length})</option>`).join('');
+  document.getElementById('lr-campo').innerHTML = camposAtivos().map(k =>
+    `<option value="${k}" ${k === _lrCampo ? 'selected' : ''}>${k} · ${nomeCampo(k)} (${qtd(k)}/${al.length})</option>`).join('');
   document.getElementById('lr-turma').innerHTML = turmas.map(t =>
     `<option value="${t}" ${t === _lrTurma ? 'selected' : ''}>${t} (${ctxTurmas()[t].alunos.length})</option>`).join('');
   document.getElementById('lr-lista').innerHTML = al.map((a, i) => {
@@ -3211,7 +3275,7 @@ function _lrProgresso() {
   const al = ctxTurmas()[_lrTurma].alunos;
   const f = al.filter(a => preenchido((ctxNotas()[a.matricula] || {})[_lrCampo])).length;
   document.getElementById('lr-prog').innerHTML =
-    `<b>${f}</b> de ${al.length} lançadas · ${_lrCampo} (${_LR_NOMES[_lrCampo]}) · turma ${_lrTurma}<span class="lr-dica">Use vírgula ou ponto. Enter vai para o próximo aluno.</span>`;
+    `<b>${f}</b> de ${al.length} lançadas · ${_lrCampo} (${nomeCampo(_lrCampo)}) · turma ${_lrTurma}<span class="lr-dica">Use vírgula ou ponto. Enter vai para o próximo aluno.</span>`;
 }
 
 // Valida (0 a 10, vírgula ou ponto) e grava no mesmo lugar que a tabela de notas
@@ -3250,6 +3314,98 @@ function fecharLancamento() {
   closeModal('modal-lanc');
   renderVisaoAtual();
 }
+// ══════════════════════════════════════════════════════════
+//  FREQUÊNCIA — leitura do "Mapa de Frequência" do SIGAA (v1.7)
+//  Cada célula do mapa tem 1 caractere: '*' = presente; dígito = horas de falta no dia.
+//  Total de faltas = soma dos dígitos da linha do aluno (depois do nome).
+// ══════════════════════════════════════════════════════════
+async function _itensPDF(file) {
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const paginas = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const pg = await pdf.getPage(p);
+    const tc = await pg.getTextContent();
+    // Páginas em paisagem costumam vir giradas 90°: nesse caso a linha do aluno corre no eixo y.
+    paginas.push(tc.items.filter(it => it.str && it.str.trim()).map(it => {
+      const t = it.transform, girado = Math.abs(t[0]) < 1e-3 && Math.abs(t[3]) < 1e-3;
+      return { lin: girado ? t[4] : t[5], col: girado ? t[5] : t[4], s: it.str };
+    }));
+  }
+  return paginas;
+}
+
+function lerMapaFrequencia(paginas) {
+  const texto = paginas.flat().map(i => i.s).join(' ');
+  const disc  = (texto.match(/Disciplina:\s*([A-Z]{3}\d{4})/) || [])[1] || null;
+  const sem   = (texto.match(/Turma:\s*\S+\s*-\s*(\d{4})\.(\d)/) || []).slice(1);
+  const alunos = {};
+  let aulas = 0;
+  paginas.forEach(itens => {
+    itens.filter(i => /^\d{9}$/.test(i.s.trim())).forEach(m => {
+      // itens da mesma linha do aluno (tolerância de 2,5 pt), exceto a própria matrícula
+      const linha = itens.filter(i => i !== m && Math.abs(i.lin - m.lin) <= 2.5).sort((a, b) => a.col - b.col);
+      let nome = [], marcas = '';
+      linha.forEach(i => {
+        const s = i.s.trim();
+        if (/^[*\d\s]+$/.test(s)) marcas += s.replace(/\s+/g, '');
+        else nome.push(s);
+      });
+      if (/[^*\d]/.test(marcas)) return;
+      const faltas = [...marcas].reduce((t, ch) => t + (ch === '*' ? 0 : +ch), 0);
+      alunos[m.s.trim()] = { nome: nome.join(' ').replace(/\s+/g, ' ').trim(), faltasH: faltas, registros: marcas.length };
+      aulas = Math.max(aulas, marcas.length);
+    });
+  });
+  return { disciplina: disc, ano: sem[0] ? +sem[0] : null, semestre: sem[1] ? +sem[1] : null, alunos, aulas };
+}
+
+// Detecta o mapa de frequência (relatório do SIGAA) e o distingue da lista de presença
+function _ehMapaFrequencia(texto) {
+  // Critério independente da orientação da página (o mapa vem girado 90°)
+  return /Lista de Frequ[eê]ncia/i.test(texto) && !/ASSINATURA/i.test(texto) &&
+         /(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)/.test(texto);
+}
+async function importarMapaFrequencia(file) {
+  const r = lerMapaFrequencia(await _itensPDF(file));
+  const d = _disc(ctx.discId);
+  const nAl = Object.keys(r.alunos).length;
+  if (!nAl) return `⚠ ${_esc(file.name)}: nenhum aluno encontrado no mapa de frequência.`;
+  if (r.disciplina && d.codigo && r.disciplina !== d.codigo)
+    return `⚠ ${_esc(file.name)}: este mapa é da <b>${r.disciplina}</b>, mas a disciplina aberta é <b>${d.codigo}</b>. Nada foi importado.`;
+  if (r.ano && (r.ano !== ctx.ano || r.semestre !== ctx.semestre))
+    return `⚠ ${_esc(file.name)}: este mapa é de <b>${r.ano}.${r.semestre}</b>, mas o semestre aberto é <b>${ctx.ano}.${ctx.semestre}</b>. Nada foi importado.`;
+  const naTurma = new Set(Object.values(ctxTurmas()).flatMap(t => t.alunos.map(a => a.matricula)));
+  const fora = Object.keys(r.alunos).filter(m => !naTurma.has(m));
+  const semMapa = [...naTurma].filter(m => !r.alunos[m]);
+  const alunos = {};
+  Object.entries(r.alunos).forEach(([m, a]) => { alunos[m] = { faltasH: a.faltasH, registros: a.registros }; });
+  ctxData().freq = { importadoEm: new Date().toISOString(), arquivo: file.name, alunos };
+  const acima = Object.keys(alunos).filter(m => naTurma.has(m) && freqDe(m)?.reprova).length;
+  const alerta = Object.keys(alunos).filter(m => naTurma.has(m) && freqDe(m)?.alerta && !freqDe(m)?.reprova).length;
+  return `✓ ${_esc(file.name)} → frequência de <b>${nAl}</b> alunos (carga horária ${d.ch} h; limite de faltas ${d.ch * 0.25} h).` +
+    (acima ? ` <span style="color:var(--danger);font-weight:700">${acima} acima de 25%.</span>` : '') +
+    (alerta ? ` <span style="color:var(--warn);font-weight:700">${alerta} entre 20% e 25%.</span>` : '') +
+    (fora.length ? `<br><small style="color:var(--warn)">No mapa, mas não cadastrados nesta disciplina: ${fora.join(', ')}</small>` : '') +
+    (semMapa.length ? `<br><small style="color:var(--warn)">Cadastrados, mas ausentes do mapa: ${semMapa.join(', ')}</small>` : '');
+}
+
+// ── Configuração de esquema e carga horária por disciplina ──
+async function setEsquema(id, valor) {
+  const d = _disc(id); if (!d.id || d.esquema === valor) return;
+  const novos = ESQUEMAS[valor].campos.map(c => c.k);
+  const fora = new Set();
+  Object.values(state.dados?.[id] || {}).forEach(sem => Object.values(sem.notas || {}).forEach(n =>
+    Object.keys(n).forEach(k => { if (preenchido(n[k]) && !novos.includes(k)) fora.add(k); })));
+  const aviso = fora.size ? `\n\nAtenção: há notas lançadas em ${[...fora].sort().join(', ')}, que não fazem parte do novo esquema. Elas ficam guardadas, mas deixam de entrar no cálculo.` : '';
+  if (!(await ui.confirmar(`Mudar o critério de avaliação de ${d.codigo} para "${ESQUEMAS[valor].nome}"?${aviso}`, { titulo: 'Critério de avaliação', ok: 'Mudar critério' }))) { renderConfig(); return; }
+  d.esquema = valor; saveAll(); renderConfig(); toast('Critério atualizado.');
+}
+function setCH(id, valor) {
+  const v = Math.round(+valor);
+  if (!(v >= 1 && v <= 400)) { ui.avisar('Informe a carga horária total em horas (entre 1 e 400).'); renderConfig(); return; }
+  _disc(id).ch = v; saveAll(); toast(`Carga horária: ${v} h (limite de faltas ${v * 0.25} h).`);
+}
+
 // ══════════════════════════════════════════════════════════
 //  TABS / MODAL / TOAST / UTIL
 // ══════════════════════════════════════════════════════════
@@ -3378,6 +3534,7 @@ async function init() {
   // Recompor disciplinas padrão
   const savedIds = state.disciplinas.map(d => d.id);
   DISC_DEFAULT.forEach(d => { if (!savedIds.includes(d.id)) state.disciplinas.unshift(d); });
+  normalizarDisciplinas();
 
   // Semestre atual por default
   const now    = new Date();

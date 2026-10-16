@@ -100,6 +100,19 @@
 
   .note { margin-top: 12px; font-size: .9rem; color: var(--soft); }
 
+  /* medidores (v1.7) */
+  .sit { margin-top: 10px; }
+  .gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .gauge { margin: 0; background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 10px 8px 12px; text-align: center; }
+  .gauge svg { width: 100%; max-width: 190px; height: auto; display: block; margin: 0 auto; }
+  .g-val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .gauge figcaption b { display: block; font-size: .92rem; }
+  .gauge figcaption span { display: block; font-size: .78rem; color: var(--soft); }
+  .gauge.vazio > div { min-height: 84px; display: flex; align-items: center; justify-content: center; color: var(--soft); font-size: .85rem; }
+  .avisos { margin: 14px 0 0 18px; font-size: .92rem; }
+  .avisos li + li { margin-top: 6px; }
+  @media (max-width: 340px) { .gauges { grid-template-columns: 1fr; } }
+
   .grades { margin-top: 18px; }
   .grades h3 { font-size: .95rem; margin: 14px 0 8px; }
   .row { display: grid; gap: 8px; }
@@ -163,8 +176,7 @@
     <div id="res"></div>
 
     <div class="panel rules">
-      <p><b>Como a nota é calculada.</b> N1 é a média de P1 e P2. A média dos relatórios (MT) é a média de T1 a T4. N2 é a média de MT e P3. A média final (MF) é a média de N1 e N2.</p>
-      <p><b>Aprovação:</b> MF igual ou maior que 6,0, com as sete avaliações lançadas.</p>
+      <p><b>Aprovação:</b> média final (MF) igual ou maior que 6,0, com todas as avaliações lançadas, e presença de pelo menos 75% da carga horária.</p>
       <p><b>Avaliação não entregue vale zero.</b> Por isso a média parcial sobe à medida que as notas são lançadas.</p>
     </div>
 
@@ -244,53 +256,87 @@
     }
   }
 
-  function cell(k, v) {
+  // Padrão das publicações antigas (antes dos critérios por disciplina)
+  const CAMPOS_ANTIGOS = [
+    { k: 'P1', nome: 'P1', grupo: 'Seminários' }, { k: 'P2', nome: 'P2', grupo: 'Seminários' }, { k: 'P3', nome: 'P3', grupo: 'Seminários' },
+    { k: 'T1', nome: 'T1', grupo: 'Relatórios' }, { k: 'T2', nome: 'T2', grupo: 'Relatórios' }, { k: 'T3', nome: 'T3', grupo: 'Relatórios' }, { k: 'T4', nome: 'T4', grupo: 'Relatórios' }];
+  const LINHAS_ANTIGAS = [['N1 (P1 e P2)', 'N1'], ['Média dos relatórios (MT)', 'MT'], ['N2 (MT e P3)', 'N2'], ['Média final (MF)', 'MF']];
+  const FORMULA_ANTIGA = ['N1 = (P1 + P2) / 2', 'MT = (T1 + T2 + T3 + T4) / 4', 'N2 = (MT + P3) / 2', 'MF = (N1 + N2) / 2'];
+  const h1 = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+
+  // Medidor semicircular: valor de 0 a max, com marca no limiar de aprovação
+  function medidor({ valor, max, limiar, cor, rotulo, texto, sub }) {
+    const R = 70, L = Math.PI * R, f = Math.max(0, Math.min(1, valor / max)), th = Math.PI * (1 - limiar / max);
+    const p = (r) => `${(80 + r * Math.cos(th)).toFixed(1)} ${(80 - r * Math.sin(th)).toFixed(1)}`;
+    const arco = 'M10 80 A70 70 0 0 1 150 80';
+    return `<figure class="gauge">
+      <svg viewBox="0 -14 160 108" role="img" aria-label="${rotulo}: ${texto}">
+        <path d="${arco}" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
+        ${f > 0 ? `<path d="${arco}" fill="none" stroke="${cor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(f * L).toFixed(1)} ${(L + 20).toFixed(1)}"/>` : ''}
+        <path d="M${p(56)} L${p(92)}" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round"/>
+        <text x="80" y="76" text-anchor="middle" class="g-val" fill="${cor}">${texto}</text>
+      </svg>
+      <figcaption><b>${rotulo}</b><span>${sub}</span></figcaption>
+    </figure>`;
+  }
+
+  function cell(c, v) {
     return v === null || v === undefined
-      ? `<div class="cell empty"><div class="k">${k}</div><div class="v">não entregue</div></div>`
-      : `<div class="cell"><div class="k">${k}</div><div class="v">${n2(v)}</div></div>`;
+      ? `<div class="cell empty"><div class="k">${esc(c.nome)}</div><div class="v">não entregue</div></div>`
+      : `<div class="cell"><div class="k">${esc(c.nome)}</div><div class="v">${n2(v)}</div></div>`;
   }
 
   function mostrar(d, atualizado) {
     const html = (d.disciplinas || []).map(x => {
-      const cls = x.situacao === 'APROVADO' ? 's-ok' : x.situacao === 'REPROVADO' ? 's-bad' : 's-pend';
-      const txt = x.situacao === 'APROVADO' ? 'Aprovado' : x.situacao === 'REPROVADO' ? 'Reprovado' : 'Em andamento';
-      const cor = x.MF >= 6 ? 'var(--ok)' : x.MF >= 4 ? 'var(--pend)' : 'var(--bad)';
-      const pend = 7 - x.entregas;
-      const nota = x.situacao === 'EM ANDAMENTO'
-        ? `Média parcial com ${x.entregas} de 7 avaliações lançadas. ${pend === 1 ? 'A avaliação pendente conta' : `As ${pend} avaliações pendentes contam`} como zero até serem lançadas.`
-        : `Resultado com as 7 avaliações lançadas.`;
-      const nt = x.notas || {};
+      const campos = x.campos || CAMPOS_ANTIGOS, linhas = x.linhas || LINHAS_ANTIGAS, formula = x.formula || FORMULA_ANTIGA;
+      const total = x.total || campos.length, nt = x.notas || {}, fr = x.freq || null;
+      const repFreq = x.situacao === 'REPROVADO POR FREQUÊNCIA';
+      const cls = x.situacao === 'APROVADO' ? 's-ok' : (x.situacao === 'REPROVADO' || repFreq) ? 's-bad' : 's-pend';
+      const txt = x.situacao === 'APROVADO' ? 'Aprovado' : x.situacao === 'REPROVADO' ? 'Reprovado' : repFreq ? 'Reprovado por frequência' : 'Em andamento';
+      const corMF = x.MF >= 6 ? 'var(--ok)' : x.MF >= 4 ? 'var(--pend)' : 'var(--bad)';
+      const parcial = (x.entregas ?? total) < total;   // média parcial enquanto houver avaliação pendente
+
+      const gMedia = medidor({ valor: x.MF, max: 10, limiar: 6, cor: corMF, rotulo: parcial ? 'Média parcial' : 'Média final',
+        texto: n2(x.MF), sub: `mínimo 6,0 · ${x.entregas} de ${total} avaliações` });
+      let gFreq;
+      if (fr) {
+        const pres = 100 - fr.pct, corF = fr.faltasH > fr.limiteH ? 'var(--bad)' : fr.faltasH > fr.ch * 0.2 ? 'var(--pend)' : 'var(--ok)';
+        gFreq = medidor({ valor: pres, max: 100, limiar: 75, cor: corF, rotulo: 'Presença', texto: h1(pres) + '%',
+          sub: `mínimo 75% · ${h1(fr.faltasH)} h de falta` });
+      } else {
+        gFreq = `<figure class="gauge vazio"><div>Frequência<br>ainda não lançada</div><figcaption><b>Presença</b><span>mínimo 75%</span></figcaption></figure>`;
+      }
+
+      // O que falta: nota necessária e horas de falta disponíveis
+      const avisos = [];
+      if (x.alvo && !repFreq) {   // após reprovar por frequência, a nota necessária deixa de orientar
+        const a = x.alvo, q = a.pendentes === 1 ? 'na avaliação que falta' : `nas ${a.pendentes} avaliações que faltam`;
+        if (a.nota <= 0) avisos.push(`<b>Média 6 já garantida pelas notas</b>, mesmo que as próximas avaliações fiquem em zero.`);
+        else if (a.nota > 10) avisos.push(`Mesmo com 10 ${q}, a média final não chega a 6. <b>Procure o professor.</b>`);
+        else avisos.push(`Para chegar à <b>média 6</b>, você precisa de média <b>${n2(a.nota)}</b> ${q}.`);
+      }
+      if (fr) {
+        if (fr.faltasH > fr.limiteH) avisos.push(`<b>Limite de faltas ultrapassado</b> (${h1(fr.faltasH)} h de ${h1(fr.limiteH)} h permitidas, 25% de ${fr.ch} h). Pelo regulamento, isso leva à reprovação por frequência. Procure o professor.`);
+        else avisos.push(`Você ainda pode faltar <b>${h1(fr.restanteH)} h</b> (limite de ${h1(fr.limiteH)} h, 25% de ${fr.ch} h).`);
+      }
+
+      // Avaliações agrupadas conforme o critério da disciplina
+      const grupos = [];
+      campos.forEach(c => { const g = grupos[grupos.length - 1]; if (g && g.nome === c.grupo) g.itens.push(c); else grupos.push({ nome: c.grupo, itens: [c] }); });
+      const blocos = grupos.map(g => `<h3>${esc(g.nome)}</h3>
+        <div class="row" style="grid-template-columns:repeat(${Math.min(g.itens.length, 4)},1fr)">${g.itens.map(c => cell(c, nt[c.k])).join('')}</div>`).join('');
+
       return `
       <article class="panel disc">
         <h2>${esc(x.disciplina)}</h2>
         <div class="meta">Semestre ${esc(x.semestre)}, turma ${esc(x.turma)}</div>
-
-        <div class="score">
-          <span class="mf" style="color:${cor}">${n2(x.MF)}</span>
-          <span class="what">média final${x.situacao === 'EM ANDAMENTO' ? ' parcial' : ''}</span>
-          <span class="badge ${cls}">${txt}</span>
-        </div>
-        <div class="rod" aria-hidden="true">
-          <div class="track"></div>
-          <div class="fill" style="width:${Math.max(0, Math.min(100, x.MF * 10))}%;background:${cor}"></div>
-          <div class="min" title="Mínimo para aprovação: 6,0"></div>
-          <div class="ticks"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>
-        </div>
-        <p class="note">${nota}</p>
-
-        <div class="grades">
-          <h3>Seminários</h3>
-          <div class="row p">${cell('P1', nt.P1)}${cell('P2', nt.P2)}${cell('P3', nt.P3)}</div>
-          <h3>Relatórios</h3>
-          <div class="row t">${cell('T1', nt.T1)}${cell('T2', nt.T2)}${cell('T3', nt.T3)}${cell('T4', nt.T4)}</div>
-        </div>
-
-        <div class="calc">
-          <div><span>N1 (P1 e P2)</span><span>${n2(x.N1)}</span></div>
-          <div><span>Média dos relatórios (MT)</span><span>${n2(x.MT)}</span></div>
-          <div><span>N2 (MT e P3)</span><span>${n2(x.N2)}</span></div>
-          <div><span>Média final (MF)</span><span>${n2(x.MF)}</span></div>
-        </div>
+        <div class="sit"><span class="badge ${cls}">${txt}</span></div>
+        <div class="gauges">${gMedia}${gFreq}</div>
+        ${avisos.length ? `<ul class="avisos">${avisos.map(a => `<li>${a}</li>`).join('')}</ul>` : ''}
+        <div class="grades">${blocos}</div>
+        <div class="calc">${linhas.map(([rot, k]) => `<div><span>${esc(rot)}</span><span>${n2(x[k])}</span></div>`).join('')}</div>
+        <p class="note">${parcial ? `Média parcial: ${total - (x.entregas ?? total)} avaliação(ões) ainda não lançada(s) contam como zero. ` : ''}Cálculo: ${formula.map(esc).join(' · ')}.</p>
+        ${fr ? `<p class="note">Frequência conforme o mapa do SIGAA importado em ${new Date(fr.importadoEm).toLocaleDateString('pt-BR')}. O registro oficial é o do SIGAA.</p>` : ''}
       </article>`;
     }).join('');
 
