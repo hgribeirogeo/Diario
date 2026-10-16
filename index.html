@@ -345,7 +345,7 @@
     .prob-wrap { display: none !important; }
     .sit-col-print { display: table-cell !important; }
     .no-print { display: none !important; }
-    .sync-ind { display: none !important; }
+    .sync-ind, .fab { display: none !important; }
     .print-only { display: block !important; }
     @page { margin: 15mm; size: A4 landscape; }
   }
@@ -355,6 +355,95 @@
     .stats-row { grid-template-columns: repeat(2,1fr); }
     input.nota  { width: 44px; }
     select.ctx.disciplina { min-width: 200px; }
+  }
+
+  /* ── ÍCONES, BARRA DE ABAS, LANÇAMENTO RÁPIDO (v1.6) ── */
+  .ic { flex-shrink: 0; vertical-align: -3px; }
+  .tab-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .tab-btn .nl-short, .tab-btn.nav-mais, .fab { display: none; }
+  .lr-modal { width: min(560px, 94vw); max-height: 90vh; display: flex; flex-direction: column; padding: 20px 22px; }
+  .lr-topo h3 { margin-bottom: 10px; }
+  .lr-filtros { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  .lr-filtros label { font-size: .75rem; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .lr-filtros select { width: 100%; }
+  .lr-prog { font-size: .8rem; color: var(--muted); margin: 10px 0 6px; }
+  .lr-prog b { color: var(--accent2); font-size: .95rem; }
+  .lr-dica { display: block; font-size: .72rem; margin-top: 2px; }
+  .lr-lista { overflow-y: auto; flex: 1; min-height: 120px; border-top: 1px solid var(--border); }
+  .lr-row { display: flex; align-items: center; gap: 10px; padding: 7px 2px; border-bottom: 1px solid var(--border); }
+  .lr-nome { flex: 1; min-width: 0; font-size: .84rem; font-weight: 600; line-height: 1.25; }
+  .lr-nome small { display: block; font-family: monospace; font-weight: 400; color: var(--muted); font-size: .72rem; }
+  .lr-in { width: 76px; text-align: center; font-size: 1rem; font-weight: 700; background: var(--inp); color: var(--text);
+           border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 6px; }
+  .lr-in:focus { outline: none; border-color: var(--accent); }
+  .lr-in.filled { border-color: var(--accent2); }
+  .lr-in.lr-erro { border-color: var(--danger); background: #e0555522; }
+  .mais-sheet { padding: 18px; }
+  .mais-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .mais-grid button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px;
+                      background: var(--inp); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+                      font: inherit; font-size: .78rem; cursor: pointer; }
+
+  /* ══ CELULAR (≤ 768 px): só sobrescreve; o layout do computador não muda ══ */
+  @media (max-width: 768px) {
+    /* barra inferior com 5 abas */
+    #tela-app .tab-bar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; padding: 0 0 env(safe-area-inset-bottom, 0px);
+      border-top: 1px solid var(--border); border-bottom: none; box-shadow: 0 -2px 12px #0006; overflow: visible;
+    }
+    .tab-btn { flex-direction: column; justify-content: center; gap: 2px; padding: 8px 2px 7px; min-height: 58px;
+               font-size: .68rem; border-bottom: none; border-top: 2px solid transparent; }
+    .tab-btn.active { border-top-color: var(--accent); }
+    .tab-btn .ic { width: 22px; height: 22px; }
+    .tab-btn .nl-full, .tab-btn.nav-extra { display: none; }
+    .tab-btn .nl-short, .tab-btn.nav-mais { display: flex; }
+    .tab-btn[data-tab="notas"] { order: 1; } .tab-btn[data-tab="diario"] { order: 2; }
+    .tab-btn[data-tab="portal"] { order: 3; } .tab-btn[data-tab="relatorio"] { order: 4; } .tab-btn.nav-mais { order: 5; }
+    @media (hover: none) { .tab-btn:hover:not(.active) { color: var(--muted); } }
+
+    /* cabeçalho compacto: ações de backup ficam em "Mais" */
+    #tela-app header { padding: 8px 12px; gap: 8px; }
+    #tela-app header .right { display: none; }
+    .disc-breadcrumb .disc-nome { font-size: .8rem; }
+
+    /* conteúdo em largura total, com espaço para a barra */
+    main { padding: 12px 10px calc(84px + env(safe-area-inset-bottom, 0px)); }
+    .card { padding: 14px 12px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat-box { padding: 10px 8px; }
+    .stat-box .val { font-size: 1.3rem; }
+    [style*="grid-template-columns:1fr 1fr"], [style*="minmax(240px,300px) 1fr"] { grid-template-columns: minmax(0, 1fr) !important; }
+    [style*="display:grid"] > * { min-width: 0; }   /* tabelas largas rolam dentro do quadro, não a página */
+    .capa-header { padding: 12px 14px; }
+    .capa-main { padding: 18px 12px 90px; }
+
+    /* tabela de notas: campos legíveis, nome fixo ao rolar */
+    input.nota { width: 58px; font-size: 16px; padding: 6px 4px; }
+    #notas-table td:nth-child(2) { position: sticky; left: 0; background: var(--card); z-index: 1;
+                                   min-width: 118px; max-width: 140px; font-size: .74rem; line-height: 1.2; }
+    #notas-table td:nth-child(1) { font-size: .66rem; }
+
+    /* campos com 16 px evitam o zoom automático do Android/iOS */
+    input[type="text"], input[type="number"], input[type="date"], input[type="password"], select, textarea { font-size: 16px; }
+
+    /* modais em tela cheia (o diálogo curto continua centralizado) */
+    .modal-backdrop:not(#modal-dlg) { align-items: stretch; }
+    .modal-backdrop:not(#modal-dlg) .modal { width: 100vw; max-width: none; height: 100%; max-height: none; border-radius: 0;
+                                             border: none; overflow-y: auto; padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+    #modal-mais.modal-backdrop { align-items: flex-end; }
+    #modal-mais.modal-backdrop .modal { height: auto; border-radius: 14px 14px 0 0; padding-top: 18px;
+                                        padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+    .lr-modal { width: 100vw; }
+    .lr-filtros { grid-template-columns: 1fr 1fr; }
+
+    /* botão flutuante, toast e indicador acima da barra */
+    #tela-app.active ~ .fab { display: flex; }
+    .fab { position: fixed; right: 16px; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); z-index: 350;
+           width: 56px; height: 56px; border-radius: 50%; border: none; align-items: center; justify-content: center;
+           background: var(--accent2); color: #0f1117; box-shadow: 0 4px 16px #0008; cursor: pointer; }
+    #toast { left: 16px; right: 16px; text-align: center; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+    #tela-app.active ~ .sync-ind { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); left: 10px; }
   }
 </style>
 </head>
@@ -407,13 +496,14 @@
 
   <!-- TABS -->
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('notas',this)">📊 Notas</button>
-    <button class="tab-btn"        onclick="switchTab('diario',this)">📓 Diário de Aulas</button>
-    <button class="tab-btn"        onclick="switchTab('importar',this)">📁 Importar PDF</button>
-    <button class="tab-btn"        onclick="switchTab('relatorio',this)">📈 Relatório</button>
-    <button class="tab-btn"        onclick="switchTab('analytics',this)">🔬 Analytics</button>
-    <button class="tab-btn"        onclick="switchTab('portal',this)">🎓 Portal do Aluno</button>
-    <button class="tab-btn"        onclick="switchTab('config',this)">⚙ Config</button>
+    <button class="tab-btn active" data-tab="notas" onclick="switchTab('notas',this)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg><span class="nl-full">Notas</span><span class="nl-short">Notas</span></button>
+    <button class="tab-btn" data-tab="diario" onclick="switchTab('diario',this)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 1-4-4z"/><path d="M9 9h6M9 13h6"/></svg><span class="nl-full">Diário de Aulas</span><span class="nl-short">Diário</span></button>
+    <button class="tab-btn nav-extra" data-tab="importar" onclick="switchTab('importar',this)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span class="nl-full">Importar PDF</span><span class="nl-short">Importar</span></button>
+    <button class="tab-btn" data-tab="relatorio" onclick="switchTab('relatorio',this)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="nl-full">Relatório</span><span class="nl-short">Relatório</span></button>
+    <button class="tab-btn nav-extra" data-tab="analytics" onclick="switchTab('analytics',this)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-7M3 20h18"/></svg><span class="nl-full">Analytics</span><span class="nl-short">Analytics</span></button>
+    <button class="tab-btn" data-tab="portal" onclick="switchTab('portal',this)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11.5v4.5c3.5 2.2 8.5 2.2 12 0v-4.5M22 9v5"/></svg><span class="nl-full">Portal do Aluno</span><span class="nl-short">Portal</span></button>
+    <button class="tab-btn nav-extra" data-tab="config" onclick="switchTab('config',this)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="nl-full">Config</span><span class="nl-short">Config</span></button>
+    <button class="tab-btn nav-mais" onclick="abrirMais()"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span class="nl-short">Mais</span></button>
   </div>
 
   <main>
@@ -426,6 +516,7 @@
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
       <span class="card-title" style="margin:0">Tabela de Notas</span>
       <span style="flex:1"></span>
+      <button class="btn btn-success btn-sm" onclick="abrirLancamento()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg> Lançamento rápido</button>
       <button class="btn btn-ghost btn-sm" onclick="exportCSV()">CSV ↓</button>
       <button class="btn btn-primary btn-sm" onclick="renderNotas()">⟳ Recalcular</button>
     </div>
@@ -840,6 +931,40 @@ function resp(o) {
 
 </main>
 </div><!-- /tela-app -->
+
+<!-- BOTÃO FLUTUANTE (celular): lançar nota -->
+<button type="button" id="fab-lancar" class="fab" onclick="abrirLancamento()" aria-label="Lançar notas"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg></button>
+
+<!-- LANÇAMENTO RÁPIDO -->
+<div class="modal-backdrop" id="modal-lanc">
+  <div class="modal lr-modal">
+    <div class="lr-topo">
+      <h3>Lançamento rápido</h3>
+      <div class="lr-filtros">
+        <label>Avaliação<select id="lr-campo" class="form-sel" onchange="_lrCampo=this.value;renderLancamento()"></select></label>
+        <label>Turma<select id="lr-turma" class="form-sel" onchange="_lrTurma=this.value;renderLancamento()"></select></label>
+      </div>
+      <div id="lr-prog" class="lr-prog"></div>
+    </div>
+    <div id="lr-lista" class="lr-lista"></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="fecharLancamento()">Concluir</button></div>
+  </div>
+</div>
+
+<!-- MENU "MAIS" (celular) -->
+<div class="modal-backdrop" id="modal-mais">
+  <div class="modal mais-sheet">
+    <div class="mais-grid">
+      <button onclick="irPara('analytics')"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-7M3 20h18"/></svg><span>Analytics</span></button>
+      <button onclick="irPara('importar')"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span>Importar PDF</span></button>
+      <button onclick="irPara('config')"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span>Config</span></button>
+      <button onclick="closeModal('modal-mais');voltarCapa()"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg><span>Disciplinas</span></button>
+      <button onclick="closeModal('modal-mais');sincronizarAgora()"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></svg><span>Sincronizar</span></button>
+      <button onclick="closeModal('modal-mais');exportJSON()"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span>Exportar backup</span></button>
+      <button onclick="closeModal('modal-mais');openImportJSON()"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 19h16"/></svg><span>Importar backup</span></button>
+    </div>
+  </div>
+</div>
 
 <!-- INDICADOR DE SINCRONIZAÇÃO -->
 <button type="button" id="sync-ind" class="sync-ind mut" onclick="sincronizarAgora()" title="Clique para sincronizar">Local (sem sync remoto)</button>
@@ -3033,6 +3158,98 @@ function _celulaEmail(mat){
     (href ? ` <a href="${href}" onclick="marcarEnviadoManual('${mat}')" title="Abrir no seu programa de e-mail" style="text-decoration:none;margin-left:4px">✉</a>` : '');
 }
 
+
+// ══════════════════════════════════════════════════════════
+//  NAVEGAÇÃO NO CELULAR: menu "Mais" (v1.6)
+// ══════════════════════════════════════════════════════════
+function abrirMais() { openModal('modal-mais'); }
+function irPara(nome) {
+  closeModal('modal-mais');
+  const btn = document.querySelector(`.tab-btn[data-tab="${nome}"]`);
+  switchTab(nome, btn);
+  if (btn && btn.classList.contains('nav-extra')) document.querySelector('.tab-btn.nav-mais')?.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ══════════════════════════════════════════════════════════
+//  LANÇAMENTO RÁPIDO — uma avaliação por vez (v1.6)
+// ══════════════════════════════════════════════════════════
+const _LR_NOMES = { P1:'Seminário 1', P2:'Seminário 2', P3:'Seminário 3', T1:'Relatório 1', T2:'Relatório 2', T3:'Relatório 3', T4:'Relatório 4' };
+let _lrCampo = 'P1', _lrTurma = null;
+
+function abrirLancamento() {
+  const turmas = Object.keys(ctxTurmas()).filter(t => (ctxTurmas()[t].alunos || []).length);
+  if (!turmas.length) { ui.avisar('Não há alunos nesta disciplina/semestre. Importe a lista de presença primeiro.', { titulo: 'Lançamento rápido' }); return; }
+  _lrTurma = turmas.includes(ctx.turmaId) ? ctx.turmaId : turmas[0];
+  const al = ctxTurmas()[_lrTurma].alunos;
+  _lrCampo = TODOS_CAMPOS.find(k => al.some(a => !preenchido((ctxNotas()[a.matricula] || {})[k]))) || 'P1';
+  renderLancamento();
+  openModal('modal-lanc');
+  setTimeout(() => document.querySelector('#lr-lista .lr-in:not(.filled)')?.focus(), 60);
+}
+
+function renderLancamento() {
+  const turmas = Object.keys(ctxTurmas()).filter(t => (ctxTurmas()[t].alunos || []).length);
+  const al = ctxTurmas()[_lrTurma].alunos;
+  const qtd = k => al.filter(a => preenchido((ctxNotas()[a.matricula] || {})[k])).length;
+  document.getElementById('lr-campo').innerHTML = TODOS_CAMPOS.map(k =>
+    `<option value="${k}" ${k === _lrCampo ? 'selected' : ''}>${k} · ${_LR_NOMES[k]} (${qtd(k)}/${al.length})</option>`).join('');
+  document.getElementById('lr-turma').innerHTML = turmas.map(t =>
+    `<option value="${t}" ${t === _lrTurma ? 'selected' : ''}>${t} (${ctxTurmas()[t].alunos.length})</option>`).join('');
+  document.getElementById('lr-lista').innerHTML = al.map((a, i) => {
+    const v = (ctxNotas()[a.matricula] || {})[_lrCampo];
+    const tem = preenchido(v);
+    return `<div class="lr-row"><div class="lr-nome">${_esc(a.nome)}<small>${a.matricula}</small></div>
+      <input class="lr-in${tem ? ' filled' : ''}" type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off"
+        data-mat="${a.matricula}" data-i="${i}" value="${tem ? String(v).replace('.', ',') : ''}" placeholder="—"
+        onchange="_lrSalvar(this)" onkeydown="_lrTecla(event,this)"></div>`;
+  }).join('');
+  _lrProgresso();
+}
+
+function _lrProgresso() {
+  const al = ctxTurmas()[_lrTurma].alunos;
+  const f = al.filter(a => preenchido((ctxNotas()[a.matricula] || {})[_lrCampo])).length;
+  document.getElementById('lr-prog').innerHTML =
+    `<b>${f}</b> de ${al.length} lançadas · ${_lrCampo} (${_LR_NOMES[_lrCampo]}) · turma ${_lrTurma}<span class="lr-dica">Use vírgula ou ponto. Enter vai para o próximo aluno.</span>`;
+}
+
+// Valida (0 a 10, vírgula ou ponto) e grava no mesmo lugar que a tabela de notas
+function _lrSalvar(inp) {
+  const bruto = inp.value.trim().replace(',', '.');
+  let valor = '';
+  if (bruto !== '') {
+    const v = Number(bruto);
+    if (!isFinite(v) || v < 0 || v > 10) { inp.classList.add('lr-erro'); inp.title = 'Nota deve estar entre 0 e 10'; return false; }
+    valor = Math.round(v * 100) / 100;
+  }
+  inp.classList.remove('lr-erro'); inp.title = '';
+  const mat = inp.dataset.mat;
+  if (!ctxNotas()[mat]) ctxNotas()[mat] = {};
+  const atual = ctxNotas()[mat][_lrCampo];
+  if ((preenchido(atual) ? parseFloat(atual) : '') === valor) return true;
+  ctxNotas()[mat][_lrCampo] = valor;
+  inp.classList.toggle('filled', valor !== '');
+  if (valor !== '') inp.value = String(valor).replace('.', ',');
+  saveAll();
+  _lrProgresso();
+  return true;
+}
+
+function _lrTecla(e, inp) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (!_lrSalvar(inp)) return;
+  const prox = document.querySelector(`#lr-lista .lr-in[data-i="${+inp.dataset.i + 1}"]`);
+  if (prox) { prox.focus(); prox.select(); } else { inp.blur(); toast('Último aluno da lista.'); }
+}
+
+function fecharLancamento() {
+  const foco = document.activeElement;
+  if (foco && foco.classList && foco.classList.contains('lr-in')) _lrSalvar(foco);
+  closeModal('modal-lanc');
+  renderVisaoAtual();
+}
 // ══════════════════════════════════════════════════════════
 //  TABS / MODAL / TOAST / UTIL
 // ══════════════════════════════════════════════════════════
@@ -3055,7 +3272,7 @@ document.querySelectorAll('.modal-backdrop').forEach(m => {
   let noFundo = false;
   m.addEventListener('mousedown', e => { noFundo = (e.target === m); });
   m.addEventListener('mouseup', e => {
-    if (noFundo && e.target === m) { if (m.id === 'modal-dlg') ui._cancelar(); else m.classList.remove('open'); }
+    if (noFundo && e.target === m) { if (m.id === 'modal-dlg') ui._cancelar(); else if (m.id === 'modal-lanc') fecharLancamento(); else m.classList.remove('open'); }
     noFundo = false;
   });
 });
