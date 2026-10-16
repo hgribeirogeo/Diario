@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Minhas notas — Portal do Aluno</title>
+<link rel="manifest" href="aluno.webmanifest">
+<meta name="theme-color" content="#1F5FAE">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Minhas notas">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -111,6 +117,34 @@
   .gauge.vazio > div { min-height: 84px; display: flex; align-items: center; justify-content: center; color: var(--soft); font-size: .85rem; }
   .avisos { margin: 14px 0 0 18px; font-size: .92rem; }
   .avisos li + li { margin-top: 6px; }
+
+  /* v2.0: instalar, lembrar, novidades, aviso, calendário, simulador */
+  .lembrar { display: flex; align-items: center; gap: 8px; font-weight: 400; margin-top: 14px; font-size: .92rem; }
+  .lembrar input { width: auto; margin: 0; }
+  .lembrar small { color: var(--soft); }
+  .instalar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: .9rem; }
+  .instalar[hidden] { display: none !important; }
+  .novidades { border-color: var(--blue); }
+  .novo { display: inline-block; font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+          color: #fff; background: var(--blue); border-radius: 999px; padding: 1px 7px; margin-bottom: 2px; }
+  .cell-novo { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue) inset; }
+  .aviso-prof { margin-top: 12px; border-left: 4px solid var(--blue); background: var(--field); border-radius: 8px; padding: 10px 12px; font-size: .92rem; }
+  .aviso-data { color: var(--soft); font-size: .8rem; margin-left: 6px; }
+  .aviso-txt { margin-top: 4px; white-space: pre-line; }
+  .cal { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .cal li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px; font-size: .9rem; border-top: 1px solid var(--line); }
+  .cal li:first-child { border-top: 0; }
+  .cal li span:first-child { white-space: nowrap; font-weight: 700; }
+  .cal li span:last-child { text-align: right; }
+  .cal li.perto span:last-child { color: var(--pend); font-weight: 700; }
+  .cal li.passou span:last-child { color: var(--soft); }
+  .sim { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .sim summary { cursor: pointer; font-weight: 700; }
+  .sim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 8px; }
+  .sim-grid label { font-size: .8rem; font-weight: 400; margin: 0; }
+  .sim-grid input { padding: 8px; font-size: 1rem; }
+  .sim-grid input.erro { border-color: var(--bad); }
+  .sim-out { margin-top: 10px; font-size: .95rem; }
   @media (max-width: 340px) { .gauges { grid-template-columns: 1fr; } }
 
   .grades { margin-top: 18px; }
@@ -149,6 +183,8 @@
     <p id="sub">Portal do Aluno · Prof. Hugo José Ribeiro · EECA/UFG</p>
   </div>
 
+  <div class="panel instalar" id="instalar-box" hidden></div>
+
   <!-- Link inválido -->
   <section class="panel" id="v-invalido" hidden>
     <p><b>Este link está incompleto.</b></p>
@@ -165,10 +201,11 @@
         <small>Os 6 caracteres impressos na sua ficha.</small>
         <input id="cod" maxlength="6" autocapitalize="characters" spellcheck="false" placeholder="••••••">
       </label>
+      <label class="lembrar"><input type="checkbox" id="lembrar"> Lembrar neste celular <small>(abre direto, sem digitar)</small></label>
       <button class="primary" id="btn" type="submit">Ver minhas notas</button>
       <div class="msg" id="msg" role="status" aria-live="polite"></div>
     </form>
-    <p class="privacy">Cada código abre apenas as notas da própria matrícula. Não compartilhe o seu.</p>
+    <p class="privacy">Cada código abre apenas as notas da própria matrícula. Não compartilhe o seu. Só marque "Lembrar" no seu próprio celular.</p>
   </section>
 
   <!-- Resultado -->
@@ -193,7 +230,13 @@
   'use strict';
   const FILE = 'portal_alunos.json';
   const qs   = new URLSearchParams(location.search);
-  const OWNER = qs.get('u'), GIST = qs.get('g');
+  let OWNER = qs.get('u'), GIST = qs.get('g');
+  // O app instalado abre sem parâmetros: o endereço do portal fica guardado no aparelho
+  try {
+    if (OWNER && GIST) { localStorage.setItem('portal_u', OWNER); localStorage.setItem('portal_g', GIST); }
+    else { OWNER = localStorage.getItem('portal_u'); GIST = localStorage.getItem('portal_g'); }
+  } catch (e) {}
+  let _doCache = false;
   const te = new TextEncoder(), td = new TextDecoder();
   const $ = id => document.getElementById(id);
 
@@ -214,7 +257,7 @@
     const raw = `https://gist.githubusercontent.com/${encodeURIComponent(OWNER)}/${encodeURIComponent(GIST)}/raw/${FILE}?t=${Date.now()}`;
     try {
       const r = await fetch(raw, { cache: 'no-store' });
-      if (r.ok) return await r.json();
+      if (r.ok) { _doCache = r.headers.get('X-Portal-Cache') === '1'; return await r.json(); }
     } catch (e) { /* tenta a API abaixo */ }
     const r2 = await fetch(`https://api.github.com/gists/${encodeURIComponent(GIST)}`, { cache: 'no-store' });
     if (!r2.ok) throw new Error('indisponível');
@@ -250,7 +293,11 @@
         const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(ent.iv) }, key, unb64(ent.ct));
         dados = JSON.parse(td.decode(pt));
       } catch (e) { erro(falha); return; }
-      mostrar(dados, arq.atualizado);
+      mostrar(dados, arq.atualizado, cod);
+      try {
+        if ($('lembrar').checked) localStorage.setItem('portal_cred', JSON.stringify({ m: mat, c: cod }));
+        else localStorage.removeItem('portal_cred');
+      } catch (e) {}
     } finally {
       $('btn').disabled = false; $('btn').textContent = 'Ver minhas notas';
     }
@@ -280,21 +327,50 @@
     </figure>`;
   }
 
-  function cell(c, v) {
+  // ── Novidades: o que foi visto por último NESTE aparelho. Guarda só resumos (hash) combinados com o
+  //    código de acesso: sem o código, não é possível descobrir as notas a partir do que fica salvo.
+  const _hh = s => { let h = 2166136261 >>> 0; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); };
+  const _chaveVisto = mat => 'portal_visto_' + _hh('m:' + mat);
+  const _sims = [];
+  function _quando(iso) {
+    const h = new Date(); h.setHours(12, 0, 0, 0);
+    const n = Math.round((new Date(iso + 'T12:00:00') - h) / 86400000);
+    return { n, txt: n === 0 ? 'hoje' : n === 1 ? 'amanhã' : n > 1 ? `em ${n} dias` : n === -1 ? 'ontem' : `há ${-n} dias` };
+  }
+  const _dBR = iso => { const [, m, d] = iso.split('-'); return `${d}/${m}`; };
+
+  function cell(c, v, novo) {
     return v === null || v === undefined
       ? `<div class="cell empty"><div class="k">${esc(c.nome)}</div><div class="v">não entregue</div></div>`
-      : `<div class="cell"><div class="k">${esc(c.nome)}</div><div class="v">${n2(v)}</div></div>`;
+      : `<div class="cell${novo ? ' cell-novo' : ''}">${novo ? '<span class="novo">novo</span>' : ''}<div class="k">${esc(c.nome)}</div><div class="v">${n2(v)}</div></div>`;
   }
 
-  function mostrar(d, atualizado) {
-    const html = (d.disciplinas || []).map(x => {
+  function mostrar(d, atualizado, cod) {
+    const chave = _chaveVisto(d.matricula);
+    let visto = null; try { visto = JSON.parse(localStorage.getItem(chave) || 'null'); } catch (e) {}
+    const novoVisto = {}, novidades = [];
+    _sims.length = 0;
+    const html = (d.disciplinas || []).map((x, idx) => {
       const campos = x.campos || CAMPOS_ANTIGOS, linhas = x.linhas || LINHAS_ANTIGAS, formula = x.formula || FORMULA_ANTIGA;
       const total = x.total || campos.length, nt = x.notas || {}, fr = x.freq || null;
       const repFreq = x.situacao === 'REPROVADO POR FREQUÊNCIA';
       const cls = x.situacao === 'APROVADO' ? 's-ok' : (x.situacao === 'REPROVADO' || repFreq) ? 's-bad' : 's-pend';
       const txt = x.situacao === 'APROVADO' ? 'Aprovado' : x.situacao === 'REPROVADO' ? 'Reprovado' : repFreq ? 'Reprovado por frequência' : 'Em andamento';
       const corMF = x.MF >= 6 ? 'var(--ok)' : x.MF >= 4 ? 'var(--pend)' : 'var(--bad)';
-      const parcial = (x.entregas ?? total) < total;   // média parcial enquanto houver avaliação pendente
+      const parcial = (x.entregas ?? total) < total;
+      const vazio = c => nt[c.k] === null || nt[c.k] === undefined;
+      const sigla = esc(String(x.disciplina).split(' · ')[0]);
+
+      // novidades desde a última visita
+      const kD = x.disciplina + '|' + x.semestre, pv = visto && visto[kD];
+      const imp = { n: {}, f: fr ? _hh(cod + ':' + fr.faltasH) : '', a: x.aviso ? _hh(cod + ':' + x.aviso.texto) : '' };
+      campos.forEach(c => { imp.n[c.k] = _hh(cod + ':' + (vazio(c) ? '' : nt[c.k])); });
+      novoVisto[kD] = imp;
+      const novos = pv ? campos.filter(c => !vazio(c) && (!pv.n || pv.n[c.k] !== imp.n[c.k])).map(c => c.k) : [];
+      const freqNova = !!(pv && fr && pv.f !== imp.f), avisoNovo = !!(pv && x.aviso && pv.a !== imp.a);
+      if (novos.length) novidades.push(`${novos.length === 1 ? '1 nota nova' : novos.length + ' notas novas'} em ${sigla}`);
+      if (freqNova) novidades.push(`frequência atualizada em ${sigla}`);
+      if (avisoNovo) novidades.push(`aviso do professor em ${sigla}`);
 
       const gMedia = medidor({ valor: x.MF, max: 10, limiar: 6, cor: corMF, rotulo: parcial ? 'Média parcial' : 'Média final',
         texto: n2(x.MF), sub: `mínimo 6,0 · ${x.entregas} de ${total} avaliações` });
@@ -302,14 +378,13 @@
       if (fr) {
         const pres = 100 - fr.pct, corF = fr.faltasH > fr.limiteH ? 'var(--bad)' : fr.faltasH > fr.ch * 0.2 ? 'var(--pend)' : 'var(--ok)';
         gFreq = medidor({ valor: pres, max: 100, limiar: 75, cor: corF, rotulo: 'Presença', texto: h1(pres) + '%',
-          sub: `mínimo 75% · ${h1(fr.faltasH)} h de falta` });
+          sub: `mínimo 75% · ${h1(fr.faltasH)} h de falta${freqNova ? ' · atualizada' : ''}` });
       } else {
         gFreq = `<figure class="gauge vazio"><div>Frequência<br>ainda não lançada</div><figcaption><b>Presença</b><span>mínimo 75%</span></figcaption></figure>`;
       }
 
-      // O que falta: nota necessária e horas de falta disponíveis
       const avisos = [];
-      if (x.alvo && !repFreq) {   // após reprovar por frequência, a nota necessária deixa de orientar
+      if (x.alvo && !repFreq) {
         const a = x.alvo, q = a.pendentes === 1 ? 'na avaliação que falta' : `nas ${a.pendentes} avaliações que faltam`;
         if (a.nota <= 0) avisos.push(`<b>Média 6 já garantida pelas notas</b>, mesmo que as próximas avaliações fiquem em zero.`);
         else if (a.nota > 10) avisos.push(`Mesmo com 10 ${q}, a média final não chega a 6. <b>Procure o professor.</b>`);
@@ -320,38 +395,121 @@
         else avisos.push(`Você ainda pode faltar <b>${h1(fr.restanteH)} h</b> (limite de ${h1(fr.limiteH)} h, 25% de ${fr.ch} h).`);
       }
 
-      // Avaliações agrupadas conforme o critério da disciplina
       const grupos = [];
       campos.forEach(c => { const g = grupos[grupos.length - 1]; if (g && g.nome === c.grupo) g.itens.push(c); else grupos.push({ nome: c.grupo, itens: [c] }); });
       const blocos = grupos.map(g => `<h3>${esc(g.nome)}</h3>
-        <div class="row" style="grid-template-columns:repeat(${Math.min(g.itens.length, 4)},1fr)">${g.itens.map(c => cell(c, nt[c.k])).join('')}</div>`).join('');
+        <div class="row" style="grid-template-columns:repeat(${Math.min(g.itens.length, 4)},1fr)">${g.itens.map(c => cell(c, nt[c.k], novos.includes(c.k))).join('')}</div>`).join('');
+
+      const avisoProf = x.aviso ? `<div class="aviso-prof">${avisoNovo ? '<span class="novo">novo</span>' : ''}<b>Aviso do professor</b>
+        <span class="aviso-data">${new Date(x.aviso.em).toLocaleDateString('pt-BR')}</span><div class="aviso-txt">${esc(x.aviso.texto)}</div></div>` : '';
+
+      // calendário das avaliações ainda sem nota
+      const datas = x.datas || {};
+      const agenda = campos.filter(c => vazio(c) && datas[c.k]).sort((a, b) => datas[a.k] < datas[b.k] ? -1 : 1);
+      const cal = agenda.length ? `<h3>Próximas avaliações</h3><ul class="cal">${agenda.map(c => {
+        const q = _quando(datas[c.k]), passou = q.n < 0;
+        return `<li class="${passou ? 'passou' : q.n <= 3 ? 'perto' : ''}"><span>${esc(c.nome)}</span><span>${_dBR(datas[c.k])} · ${passou ? q.txt + ', aguardando lançamento' : q.txt}</span></li>`; }).join('')}</ul>` : '';
+
+      // simulador (só com os pesos publicados pela versão nova)
+      const pend = campos.filter(vazio);
+      let sim = '';
+      if (x.pesos && pend.length && !repFreq) {
+        _sims[idx] = { pesos: x.pesos, notas: nt, campos };
+        sim = `<details class="sim"><summary>Simular minha média</summary>
+          <p class="note">Digite notas hipotéticas para as avaliações que faltam (0 a 10). Em branco conta como zero.</p>
+          <div class="sim-grid">${pend.map(c => `<label>${esc(c.nome)}<input class="sim-in" data-card="${idx}" data-k="${c.k}" inputmode="decimal" placeholder="0" autocomplete="off"></label>`).join('')}</div>
+          <div class="sim-out" id="sim-out-${idx}"></div></details>`;
+      }
 
       return `
       <article class="panel disc">
         <h2>${esc(x.disciplina)}</h2>
         <div class="meta">Semestre ${esc(x.semestre)}, turma ${esc(x.turma)}</div>
         <div class="sit"><span class="badge ${cls}">${txt}</span></div>
+        ${avisoProf}
         <div class="gauges">${gMedia}${gFreq}</div>
         ${avisos.length ? `<ul class="avisos">${avisos.map(a => `<li>${a}</li>`).join('')}</ul>` : ''}
+        ${cal}
         <div class="grades">${blocos}</div>
         <div class="calc">${linhas.map(([rot, k]) => `<div><span>${esc(rot)}</span><span>${n2(x[k])}</span></div>`).join('')}</div>
+        ${sim}
         <p class="note">${parcial ? `Média parcial: ${total - (x.entregas ?? total)} avaliação(ões) ainda não lançada(s) contam como zero. ` : ''}Cálculo: ${formula.map(esc).join(' · ')}.</p>
         ${fr ? `<p class="note">Frequência conforme o mapa do SIGAA importado em ${new Date(fr.importadoEm).toLocaleDateString('pt-BR')}. O registro oficial é o do SIGAA.</p>` : ''}
       </article>`;
     }).join('');
 
-    $('res').innerHTML = html || '<div class="panel">Nenhuma disciplina publicada para esta matrícula.</div>';
+    $('res').innerHTML = (novidades.length ? `<div class="panel novidades"><b>Novidades desde sua última visita:</b> ${novidades.join(' · ')}.</div>` : '') +
+      (html || '<div class="panel">Nenhuma disciplina publicada para esta matrícula.</div>');
+    _sims.forEach((s, i) => { if (s) _simular(i); });
+    try { localStorage.setItem(chave, JSON.stringify(novoVisto)); } catch (e) {}
     $('sub').textContent = `Matrícula ${d.matricula}`;
-    $('upd').textContent = atualizado ? `Notas publicadas em ${new Date(atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '';
+    $('upd').textContent = (_doCache ? 'Sem internet: mostrando a última versão salva neste celular. ' : '') +
+      (atualizado ? `Notas publicadas em ${new Date(atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '');
     $('v-login').hidden = true; $('v-res').hidden = false;
     window.scrollTo(0, 0);
   }
 
+  function _simular(i) {
+    const s = _sims[i]; if (!s) return;
+    let mf = 0, invalido = false;
+    s.campos.forEach(c => {
+      let v = s.notas[c.k];
+      if (v === null || v === undefined) {
+        const inp = document.querySelector(`.sim-in[data-card="${i}"][data-k="${c.k}"]`);
+        const t = inp ? inp.value.trim().replace(',', '.') : '';
+        v = t === '' ? 0 : Number(t);
+        const ok = isFinite(v) && v >= 0 && v <= 10;
+        if (inp) inp.classList.toggle('erro', !ok);
+        if (!ok) { invalido = true; v = 0; }
+      }
+      mf += (s.pesos[c.k] || 0) * v;
+    });
+    const out = document.getElementById('sim-out-' + i); if (!out) return;
+    const atinge = mf >= 6 - 1e-9;
+    out.innerHTML = invalido ? '<span style="color:var(--bad)">Use notas de 0 a 10.</span>'
+      : `Média final simulada: <b style="color:${atinge ? 'var(--ok)' : 'var(--bad)'}">${n2(mf)}</b> · ${atinge ? 'atinge 6,0' : 'abaixo de 6,0'}<br><small>A simulação não considera a frequência.</small>`;
+  }
+  document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('sim-in')) _simular(+e.target.dataset.card); });
+
   function sair() {
+    try { localStorage.removeItem('portal_cred'); } catch (e) {}
+    $('lembrar').checked = false;
     $('res').innerHTML = ''; $('mat').value = ''; $('cod').value = ''; $('msg').textContent = '';
     $('sub').textContent = 'Portal do Aluno · Prof. Hugo José Ribeiro · EECA/UFG';
     $('v-res').hidden = true; $('v-login').hidden = false;
   }
+
+  // ── instalação como aplicativo ──
+  let _pedido = null;
+  const _standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const _ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  function _renderInstalar() {
+    const box = $('instalar-box');
+    if (_standalone()) { box.hidden = true; return; }
+    if (_pedido) {
+      box.hidden = false;
+      box.innerHTML = '<button class="ghost" type="button" id="btn-inst">Instalar no celular</button><span>Tenha suas notas na tela inicial, sem precisar do link.</span>';
+      $('btn-inst').onclick = async () => { _pedido.prompt(); try { await _pedido.userChoice; } catch (e) {} _pedido = null; _renderInstalar(); };
+      return;
+    }
+    if (_ios) { box.hidden = false; box.innerHTML = '<span>Para ter suas notas na tela inicial: toque em <b>Compartilhar</b> e depois em <b>Adicionar à Tela de Início</b>.</span>'; return; }
+    box.hidden = true;
+  }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _pedido = e; _renderInstalar(); });
+  window.addEventListener('appinstalled', () => {
+    _pedido = null; _renderInstalar();
+    // Instalar é um gesto de "este celular é meu": o acesso exibido passa a ser lembrado
+    try {
+      if (!$('v-res').hidden && $('mat').value && $('cod').value) {
+        localStorage.setItem('portal_cred', JSON.stringify({ m: $('mat').value.replace(/\D/g, ''), c: $('cod').value.trim().toUpperCase() }));
+        $('lembrar').checked = true;
+      }
+    } catch (e) {}
+  });
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('./sw-aluno.js', { scope: './aluno' }).catch(() => {});
+  }
+  _renderInstalar();
 
   // ── início ──
   if (!OWNER || !GIST) { $('v-invalido').hidden = false; return; }
@@ -364,7 +522,15 @@
   if (h.get('m') && h.get('c')) {
     $('mat').value = h.get('m'); $('cod').value = h.get('c');
     history.replaceState(null, '', location.pathname + location.search); // remove credenciais da barra/histórico
+    $('lembrar').checked = _standalone();
     consultar($('mat').value, $('cod').value);
+  } else {
+    // App instalado ou acesso lembrado: abre direto
+    try {
+      const cr = JSON.parse(localStorage.getItem('portal_cred') || 'null');
+      if (cr && cr.m && cr.c) { $('mat').value = cr.m; $('cod').value = cr.c; $('lembrar').checked = true; consultar(cr.m, cr.c); }
+      else $('lembrar').checked = _standalone();
+    } catch (e) {}
   }
 })();
 </script>

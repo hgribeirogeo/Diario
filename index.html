@@ -282,6 +282,7 @@
                   font-size: .84rem; line-height: 1.5; }
   .aviso-portal > span { flex: 1; min-width: 200px; }
   .aviso-portal b { color: var(--warn); }
+  .dc-prox { font-size: .72rem; color: var(--accent); margin: 2px 0 4px; }
   .dc-selo { display: inline-block; margin-left: 8px; font-size: .64rem; font-weight: 700; color: var(--warn);
              border: 1px solid var(--warn); border-radius: 20px; padding: 0 8px; letter-spacing: 0; text-transform: none; }
 
@@ -579,6 +580,11 @@
       </table>
     </div>
   </div>
+  <details class="card" id="hist-card" ontoggle="if (this.open) renderHistorico()">
+    <summary class="card-title" style="cursor:pointer;margin:0">Histórico de alterações de notas</summary>
+    <input type="text" id="hist-filtro" placeholder="Filtrar por matrícula ou nome" oninput="renderHistorico()" style="width:100%;margin:12px 0 8px">
+    <div id="hist-lista" class="table-wrap" style="max-height:420px;overflow-y:auto"></div>
+  </details>
 </section>
 
 <!-- ══ DIÁRIO ══ -->
@@ -638,6 +644,7 @@
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap" class="no-print">
       <span class="card-title" style="margin:0">Situação dos Alunos</span>
       <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" onclick="abrirFechamento()">Fechamento SIGAA</button>
       <button class="btn btn-primary btn-sm" onclick="gerarPDF()">🖨 Gerar PDF</button>
     </div>
 
@@ -771,6 +778,18 @@
       <button class="btn btn-ghost btn-sm" onclick="publicarPortal(false)">⛔ Retirar esta disciplina do portal</button>
     </div>
     <div id="portal-log" style="font-size:.8rem;color:var(--muted);margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Aviso aos alunos e calendário de avaliações — <span id="aviso-ctx"></span></div>
+    <label style="font-size:.78rem;color:var(--muted);display:block">Aviso exibido no topo do portal desta disciplina (em branco, nada é exibido)
+      <textarea id="aviso-texto" class="annotation" maxlength="600" style="margin-top:4px" placeholder="Ex.: Seminário 3 remarcado para 25/11."></textarea>
+    </label>
+    <div style="display:flex;gap:10px;margin:8px 0 16px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-primary btn-sm" onclick="salvarAviso()">Salvar aviso</button>
+      <span id="aviso-info" style="font-size:.75rem;color:var(--muted)"></span>
+    </div>
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px">Datas de entrega ou realização. O aluno vê a contagem regressiva das avaliações que ainda não têm nota.</div>
+    <div id="datas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px"></div>
   </div>
   <div style="display:grid;grid-template-columns:minmax(240px,300px) 1fr;gap:16px">
     <div class="card" style="text-align:center">
@@ -906,6 +925,12 @@ function resp(o) {
     </div>
   </div>
   <div class="card">
+    <div class="card-title">Versões anteriores (histórico do Gist)</div>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin-bottom:10px">O GitHub guarda cada versão salva no Gist. Se uma alteração em massa der errado, restaure uma versão anterior. Antes de restaurar, o sistema baixa um backup da versão atual, e a restauração entra no histórico como versão nova.</p>
+    <button class="btn btn-ghost btn-sm" onclick="listarVersoes()">Ver versões salvas</button>
+    <div id="versoes-lista" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
     <div class="card-title">Aplicativo e aparência</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <button class="btn btn-primary btn-sm" onclick="instalarApp()">Instalar aplicativo</button>
@@ -982,6 +1007,20 @@ function resp(o) {
       <button onclick="closeModal('modal-mais');exportJSON()"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span>Exportar backup</span></button>
       <button onclick="closeModal('modal-mais');openImportJSON()"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 19h16"/></svg><span>Importar backup</span></button>
       <button onclick="closeModal('modal-mais');alternarTema()" class="btn-tema"><svg class="ic ic-sol" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="ic ic-lua" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Tema claro/escuro</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- FECHAMENTO SIGAA -->
+<div class="modal-backdrop" id="modal-sigaa">
+  <div class="modal" style="width:min(920px,96vw);max-height:90vh;overflow:auto">
+    <h3>Fechamento para o SIGAA</h3>
+    <div id="sigaa-aviso" style="font-size:.8rem;line-height:1.6;margin-bottom:10px"></div>
+    <div class="table-wrap"><table id="sigaa-tab"></table></div>
+    <div class="modal-actions" style="flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="copiarNotasSigaa()">Copiar coluna de médias</button>
+      <button class="btn btn-ghost" onclick="baixarFechamentoCSV()">Baixar CSV</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-sigaa')">Fechar</button>
     </div>
   </div>
 </div>
@@ -1694,7 +1733,7 @@ function renderCapa() {
     card.className = 'disc-card';
     card.onclick = () => abrirDisc(d.id);
     card.innerHTML = `
-      <div class="dc-codigo">${d.codigo}${_seloPortal(d.id)}</div>
+      <div class="dc-codigo">${d.codigo}${_seloPortal(d.id)}</div>${_proximaEntrega(d.id)}
       <div class="dc-nome">${d.nome}</div>
       ${d.sufixo ? `<div class="dc-sufixo">${d.sufixo}</div>` : '<div class="dc-sufixo" style="margin-bottom:14px"></div>'}
       ${totalAlunos > 0 ? `
@@ -2029,6 +2068,7 @@ function renderNotas() {
 
   renderStatsNotas(alunos);
   renderFooterNotas(alunos);
+  if (document.getElementById('hist-card')?.open) renderHistorico();
 }
 
 function onNotaChange(input) {
@@ -2037,7 +2077,9 @@ function onNotaChange(input) {
   const val   = input.value.trim();
   if (!ctxNotas()[mat]) ctxNotas()[mat] = {};
   const parsed = parseFloat(val);
+  const _antes = ctxNotas()[mat][campo];
   ctxNotas()[mat][campo] = (val === '' || isNaN(parsed)) ? '' : parsed;
+  registrarAlteracao(mat, campo, _antes, ctxNotas()[mat][campo]);
   const { MT, N1, N2, MF } = calcNotas(mat);
   const cells = input.closest('tr').querySelectorAll('.calc');
   cells[0].textContent = fmt(MT, true);
@@ -2846,14 +2888,16 @@ function _registrosContexto(discId, sk){
         situacao: sit.cod === 'REP_FREQ' ? 'REPROVADO POR FREQUÊNCIA' : sit.cod === 'ANDAMENTO' ? 'EM ANDAMENTO' : sit.cod,
         alvo: alvo ? { nota: alvo.x, pendentes: alvo.pendentes } : null,
         freq: fr ? { faltasH: fr.faltasH, ch: fr.ch, pct: +fr.pct.toFixed(2), limiteH: fr.limiteH,
-                     restanteH: fr.restanteH, importadoEm: fr.importadoEm } : null
+                     restanteH: fr.restanteH, importadoEm: fr.importadoEm } : null,
+        aviso: dados.aviso && dados.aviso.texto ? { texto: dados.aviso.texto, em: dados.aviso.em } : null,
+        datas: dados.datas || {}, pesos: pesosEsquema(discId)
       }});
     });
   });
   return out;
 }
 
-async function publicarPortal(incluir){
+async function publicarPortal(incluir, opts = {}){
   const p     = portalCfg();
   const log   = document.getElementById('portal-log');
   const token = localStorage.getItem(GIST_TOK_KEY);
@@ -2901,11 +2945,16 @@ async function publicarPortal(incluir){
     p.owner  = (d.owner && d.owner.login) || p.owner;
     p.impressoes = {};
     Object.keys(p.publicados).forEach(k => { const [di, s] = k.split('|'); p.impressoes[k] = impressaoPortal(di, s); });
+    const agora = {};
+    Object.keys(p.publicados).forEach(k => { const [di, s] = k.split('|'); _registrosContexto(di, s).forEach(rg => { agora[k + '|' + rg.matricula] = _assinaturaAluno(rg.registro); }); });
+    const mudancas = p.hashAlunos ? _diffAlunos(p.hashAlunos, agora) : null;   // null: primeira publicação desta versão
+    p.hashAlunos = agora;
     p.ultimaPublicacao = new Date().toISOString();
     saveAll();
     log.innerHTML = `<span style="color:var(--accent2)">✓ Portal atualizado: ${mats.length} aluno(s), ${Object.keys(p.publicados).length} disciplina(s) publicada(s).</span>
       O GitHub pode levar alguns minutos para refletir a atualização.`;
     renderPortal();
+    if (incluir && opts.avisar !== false && mudancas && Object.keys(mudancas).length) await _oferecerAvisoEmail(mudancas);
     return true;
   } catch (e) {
     if (anterior) p.publicados[chave] = anterior; else delete p.publicados[chave];
@@ -2921,6 +2970,7 @@ function renderPortal(){
   const url   = portalURL();
   document.getElementById('portal-ctx').textContent = disc ? `${disc.codigo} · ${ctx.ano}.${ctx.semestre}` : '';
   document.getElementById('portal-status').innerHTML = _statusPortalHTML();
+  renderAvisoCalendario();
 
   const qr = document.getElementById('portal-qr');
   const lk = document.getElementById('portal-link');
@@ -3183,6 +3233,8 @@ ${pessoal}
 
 Ou acesse ${url} e digite a matrícula e o código.
 
+No celular, abra o link e toque em "Instalar no celular" para ter suas notas na tela inicial.
+
 O código é pessoal e abre somente as notas da sua matrícula. Não o compartilhe.
 As notas são atualizadas no portal ao longo do semestre, à medida que forem lançadas.
 
@@ -3195,6 +3247,7 @@ EECA/UFG`;
 Código de acesso: <b style="font-family:'Courier New',monospace;font-size:18px;letter-spacing:3px">${cod}</b></p>
 <p><a href="${pessoal}" style="display:inline-block;background:#1F5FAE;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold">Ver minhas notas</a></p>
 <p style="font-size:13px;color:#5B6B7E">Se o botão não abrir, acesse <a href="${url}">${url}</a> e digite a matrícula e o código.</p>
+<p style="font-size:13px;color:#5B6B7E">No celular, abra o link e toque em <b>Instalar no celular</b> para ter suas notas na tela inicial.</p>
 <p style="font-size:13px;color:#5B6B7E">O código é pessoal e abre somente as notas da sua matrícula. Não o compartilhe.
 As notas são atualizadas no portal ao longo do semestre, à medida que forem lançadas.</p>
 <p>Prof. Hugo José Ribeiro<br>EECA/UFG</p></div>`;
@@ -3259,7 +3312,7 @@ async function enviarCodigosEmail(){
 
   // Garante que os códigos enviados já estão publicados (códigos novos ou regenerados)
   log.textContent = '🔐 Atualizando o portal antes do envio...';
-  const publicado = await publicarPortal(true);
+  const publicado = await publicarPortal(true, { avisar: false });
   const url = portalURL();
   if (!publicado || !url) { log.innerHTML = '<span style="color:var(--danger)">⚠ Envio cancelado: não foi possível publicar o portal.</span>'; return; }
 
@@ -3361,6 +3414,7 @@ function _lrSalvar(inp) {
   if (!ctxNotas()[mat]) ctxNotas()[mat] = {};
   const atual = ctxNotas()[mat][_lrCampo];
   if ((preenchido(atual) ? parseFloat(atual) : '') === valor) return true;
+  registrarAlteracao(mat, _lrCampo, ctxNotas()[mat][_lrCampo], valor);
   ctxNotas()[mat][_lrCampo] = valor;
   inp.classList.toggle('filled', valor !== '');
   if (valor !== '') inp.value = String(valor).replace('.', ',');
@@ -3591,6 +3645,205 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 // Conexão voltou: envia o que ficou pendente. Caiu: mostra que os dados estão salvos no aparelho.
 window.addEventListener('online', () => { if (localStorage.getItem(GIST_TOK_KEY)) reconciliarComGist(); });
 window.addEventListener('offline', () => { if (localStorage.getItem(GIST_TOK_KEY)) setSyncIndicador('offline'); });
+
+// ══════════════════════════════════════════════════════════
+//  v2.0 — HISTÓRICO, VERSÕES, FECHAMENTO SIGAA, AVISOS, CALENDÁRIO, AVISO POR E-MAIL
+// ══════════════════════════════════════════════════════════
+// ── Histórico de alterações de notas (por disciplina/semestre) ──
+function registrarAlteracao(mat, campo, de, para) {
+  const norm = v => preenchido(v) ? parseFloat(v) : '';
+  if (norm(de) === norm(para)) return;
+  const d = ctxData(); if (!d.log) d.log = [];
+  d.log.push({ t: new Date().toISOString(), m: mat, k: campo, de: norm(de), para: norm(para) });
+  if (d.log.length > 3000) d.log.splice(0, d.log.length - 3000);
+}
+function renderHistorico() {
+  const div = document.getElementById('hist-lista'); if (!div) return;
+  const nomes = {}; Object.values(ctxTurmas()).forEach(t => t.alunos.forEach(a => { nomes[a.matricula] = a.nome; }));
+  const f = (document.getElementById('hist-filtro')?.value || '').trim().toUpperCase();
+  const log = (ctxData().log || []).filter(e => !f || e.m.includes(f) || (nomes[e.m] || '').includes(f)).slice(-300).reverse();
+  const v = x => x === '' ? '—' : String(x).replace('.', ',');
+  div.innerHTML = log.length ? `<table><thead><tr><th style="text-align:left">Quando</th><th style="text-align:left">Aluno</th><th>Avaliação</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${
+    log.map(e => `<tr><td style="white-space:nowrap">${_fmtDH(e.t)}</td><td>${_esc(nomes[e.m] || e.m)}</td><td style="text-align:center">${e.k}</td>
+      <td style="text-align:center;color:var(--muted)">${v(e.de)}</td><td style="text-align:center;font-weight:700">${v(e.para)}</td></tr>`).join('')}</tbody></table>`
+    : '<p style="color:var(--muted);font-size:.82rem;padding:10px 0">Nenhuma alteração registrada' + (f ? ' para este filtro.' : '. O registro começa a partir desta versão.') + '</p>';
+}
+
+// ── Versões anteriores (histórico de revisões do Gist) ──
+async function listarVersoes() {
+  const token = localStorage.getItem(GIST_TOK_KEY), id = localStorage.getItem(GIST_ID_KEY);
+  const div = document.getElementById('versoes-lista');
+  if (!token || !id) { ui.avisar('Configure a sincronização com o Gist primeiro.', { titulo: 'Versões anteriores' }); return; }
+  div.innerHTML = '<span style="color:var(--muted);font-size:.8rem">Carregando…</span>';
+  try {
+    const r = await fetchWithTimeout(`https://api.github.com/gists/${id}/commits?per_page=40`, { headers: _hdr(token) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const vs = await r.json();
+    div.innerHTML = vs.length ? `<div class="table-wrap" style="max-height:340px;overflow-y:auto"><table><thead><tr>
+        <th style="text-align:left">Salva em</th><th>Linhas alteradas</th><th></th></tr></thead><tbody>${vs.map((v, i) => `<tr>
+        <td>${_fmtDH(v.committed_at)}${i === 0 ? ' <b style="color:var(--accent2)">(atual)</b>' : ''}</td>
+        <td style="text-align:center">${(v.change_status && v.change_status.total) || 0}</td>
+        <td style="text-align:center">${i === 0 ? '' : `<button class="btn btn-ghost btn-sm" onclick="restaurarVersao('${_esc(v.version)}','${_esc(v.committed_at)}')">Restaurar</button>`}</td></tr>`).join('')}
+        </tbody></table></div>` : '<span style="color:var(--muted);font-size:.8rem">Nenhuma versão encontrada.</span>';
+  } catch (e) { div.innerHTML = `<span style="color:var(--danger)">⚠ ${_esc(e.message)}</span>`; }
+}
+async function restaurarVersao(sha, quando) {
+  const token = localStorage.getItem(GIST_TOK_KEY), id = localStorage.getItem(GIST_ID_KEY);
+  try {
+    const r = await fetchWithTimeout(`https://api.github.com/gists/${id}/${sha}`, { headers: _hdr(token) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const remoto = await _conteudoGist(await r.json(), token);
+    if (!remoto || !remoto.dados) throw new Error('esta versão não contém dados do DiárioProf');
+    const nV = contarRegistros(remoto), nA = contarRegistros(state);
+    const ok = await ui.confirmar(`Restaurar a versão salva em ${_fmtDH(quando)}?\n\nEla tem ${nV} registros; a versão atual tem ${nA}. ` +
+      `Notas, alunos, frequência e códigos voltam a como estavam naquele momento.\n\nAntes de restaurar, um backup da versão atual será baixado. ` +
+      `A restauração é salva como uma versão nova no Gist, então a versão atual continua no histórico.`,
+      { titulo: 'Restaurar versão', ok: 'Restaurar', perigo: true });
+    if (!ok) return;
+    exportJSON();
+    _adotarRemoto(remoto);
+    saveAll();
+    toast('Versão restaurada.');
+    setTimeout(listarVersoes, 2500);
+  } catch (e) { ui.avisar('Não foi possível restaurar: ' + e.message, { titulo: 'Versões anteriores' }); }
+}
+
+// ── Fechamento para o SIGAA ──
+function _linhasFechamento() {
+  const out = [];
+  Object.entries(ctxTurmas()).forEach(([tid, t]) => t.alunos.forEach(a => {
+    const n = ctxNotas()[a.matricula] || {}, fr = freqDe(a.matricula);
+    out.push({ tid, mat: a.matricula, nome: a.nome, mf: calcNotas(a.matricula).MF, faltas: fr ? fr.faltasH : null, sit: situacaoDe(n, a.matricula) });
+  }));
+  return out;
+}
+function abrirFechamento() {
+  const L = _linhasFechamento(), pend = L.filter(l => l.sit.cod === 'ANDAMENTO').length, semF = L.filter(l => l.faltas === null).length;
+  document.getElementById('sigaa-aviso').innerHTML =
+    (pend ? `<div style="color:var(--warn);font-weight:700">⚠ ${pend} aluno(s) ainda têm avaliações sem nota, que contam como zero.</div>` : '<div style="color:var(--accent2);font-weight:700">✓ Todas as avaliações lançadas.</div>') +
+    (semF ? `<div style="color:var(--warn)">⚠ Frequência não importada para ${semF} aluno(s).</div>` : '') +
+    `<div style="color:var(--muted)">Ordem: a mesma das listas de presença do SIGAA, turma por turma. A média vai com duas casas decimais; confira no SIGAA a regra de arredondamento antes de lançar.</div>`;
+  document.getElementById('sigaa-tab').innerHTML = `<thead><tr><th style="text-align:left">Turma</th><th style="text-align:left">Matrícula</th><th style="text-align:left">Nome</th>
+      <th>Média final</th><th>Faltas (h)</th><th>Situação</th></tr></thead><tbody>${L.map(l => `<tr><td>${l.tid}</td><td>${l.mat}</td><td>${_esc(l.nome)}</td>
+      <td class="calc ${l.mf >= 6 ? 'ok' : 'fail'}">${l.mf.toFixed(2).replace('.', ',')}</td><td style="text-align:center">${l.faltas === null ? '—' : l.faltas}</td>
+      <td style="text-align:center;font-weight:700;font-size:.75rem;color:${l.sit.cor}">${l.sit.txt}</td></tr>`).join('')}</tbody>`;
+  openModal('modal-sigaa');
+}
+function copiarNotasSigaa() {
+  const t = _linhasFechamento().map(l => l.mf.toFixed(2).replace('.', ',')).join('\n');
+  navigator.clipboard.writeText(t).then(() => toast('Médias copiadas, uma por linha, na ordem da lista.'),
+    () => ui.pedir('Copie as médias:', t, { titulo: 'Fechamento SIGAA', ok: 'Fechar', area: true }));
+}
+function baixarFechamentoCSV() {
+  const d = _disc(ctx.discId);
+  const rows = [['Turma', 'Matrícula', 'Nome', 'Média final', 'Faltas (h)', 'Situação']].concat(
+    _linhasFechamento().map(l => [l.tid, l.mat, l.nome, l.mf.toFixed(2).replace('.', ','), l.faltas === null ? '' : l.faltas, l.sit.txt]));
+  const blob = new Blob(['\ufeff' + rows.map(r => r.join(';')).join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `fechamento_SIGAA_${d.codigo || ctx.discId}_${semKey()}.csv`; a.click();
+  toast('CSV do fechamento baixado.');
+}
+
+// ── Aviso aos alunos e calendário de avaliações ──
+function _diasAte(iso) {
+  const h = new Date(); h.setHours(12, 0, 0, 0);
+  return Math.round((new Date(iso + 'T12:00:00') - h) / 86400000);
+}
+function _dataBR(iso) { const [a, m, d] = iso.split('-'); return `${d}/${m}`; }
+function renderAvisoCalendario() {
+  const d = ctxData(), disc = _disc(ctx.discId);
+  const c = document.getElementById('aviso-ctx'); if (!c) return;
+  c.textContent = `${disc.codigo} · ${ctx.ano}.${ctx.semestre}`;
+  const ta = document.getElementById('aviso-texto');
+  if (document.activeElement !== ta) ta.value = (d.aviso && d.aviso.texto) || '';
+  document.getElementById('aviso-info').textContent = d.aviso && d.aviso.texto ? `Salvo em ${_fmtDH(d.aviso.em)}` : 'Nenhum aviso publicado.';
+  const datas = d.datas || {};
+  document.getElementById('datas-grid').innerHTML = esq().campos.map(cp => `
+    <label style="font-size:.75rem;color:var(--muted);display:flex;flex-direction:column;gap:3px">${cp.k} · ${_esc(cp.nome)}
+      <input type="date" value="${datas[cp.k] || ''}" onchange="salvarData('${cp.k}', this.value)"></label>`).join('');
+}
+function salvarAviso() {
+  const t = document.getElementById('aviso-texto').value.trim(), d = ctxData();
+  if (t) d.aviso = { texto: t.slice(0, 600), em: new Date().toISOString() }; else delete d.aviso;
+  saveAll(); renderAvisoCalendario(); renderPortal();
+  toast(t ? 'Aviso salvo. Publique o portal para os alunos verem.' : 'Aviso removido. Publique o portal para atualizar.');
+}
+function salvarData(k, v) {
+  const d = ctxData(); if (!d.datas) d.datas = {};
+  if (v) d.datas[k] = v; else delete d.datas[k];
+  saveAll(); renderPortal();
+}
+function _proximaEntrega(discId) {
+  const dados = state.dados?.[discId]?.[semKey()]; if (!dados || !dados.datas) return '';
+  const prox = Object.entries(dados.datas).filter(([, v]) => v && _diasAte(v) >= 0).sort((a, b) => a[1] < b[1] ? -1 : 1)[0];
+  if (!prox) return '';
+  const n = _diasAte(prox[1]), q = n === 0 ? 'hoje' : n === 1 ? 'amanhã' : `em ${n} dias`;
+  return `<div class="dc-prox">Próxima: ${prox[0]} · ${nomeCampo(prox[0], discId)} · ${_dataBR(prox[1])} (${q})</div>`;
+}
+function pesosEsquema(discId) {
+  const e = esquemaDe(discId), z = e.calc({}).MF, w = {};
+  e.campos.forEach(cp => { w[cp.k] = +(e.calc({ [cp.k]: 1 }).MF - z).toFixed(6); });
+  return w;
+}
+
+// ── Aviso por e-mail aos alunos com novidades, ao publicar ──
+function _assinaturaAluno(reg) {
+  return { n: _hashStr(JSON.stringify(reg.notas || {})), f: reg.freq ? String(reg.freq.faltasH) : '',
+           a: reg.aviso ? _hashStr(reg.aviso.texto) : '', d: _hashStr(JSON.stringify(reg.datas || {})) };
+}
+function _diffAlunos(antes, agora) {
+  const ctxAntes = new Set(Object.keys(antes).map(k => k.split('|').slice(0, 2).join('|')));
+  const out = {};
+  Object.entries(agora).forEach(([k, s]) => {
+    const prev = antes[k], [discId, sk, mat] = k.split('|');
+    if (!prev || !ctxAntes.has(discId + '|' + sk)) return;
+    const cats = [];
+    if (prev.n !== s.n) cats.push('notas');
+    if (prev.f !== s.f) cats.push('frequência');
+    if (prev.a !== s.a && s.a) cats.push('aviso do professor');
+    if (prev.d !== s.d) cats.push('calendário de avaliações');
+    if (cats.length) (out[mat] = out[mat] || []).push({ discId, sk, cats });
+  });
+  return out;
+}
+async function _oferecerAvisoEmail(mudancas) {
+  const p = portalCfg(), emails = p.emails || {};
+  const mats = Object.keys(mudancas).filter(m => emails[m]);
+  const log = document.getElementById('portal-log');
+  if (!mats.length) return;
+  if (!localStorage.getItem('diarioprof_mail_url') || !localStorage.getItem('diarioprof_mail_key')) {
+    log.innerHTML += `<br><span style="color:var(--muted)">${mats.length} aluno(s) tiveram novidades. Configure o envio de e-mails para avisá-los automaticamente.</span>`;
+    return;
+  }
+  const cont = {}; mats.forEach(m => mudancas[m].forEach(x => x.cats.forEach(c => { cont[c] = (cont[c] || 0) + 1; })));
+  const resumo = Object.entries(cont).map(([c, q]) => `${c} (${q})`).join(', ');
+  const ok = await ui.confirmar(`${mats.length} aluno(s) com e-mail vinculado tiveram novidades nesta publicação: ${resumo}.\n\nEnviar um aviso por e-mail só para eles, com o link de acesso?`,
+    { titulo: 'Avisar alunos', ok: 'Enviar aviso', cancelar: 'Agora não' });
+  if (!ok) return;
+  const url = portalURL(), nomes = {};
+  Object.values(state.dados || {}).forEach(di => Object.values(di || {}).forEach(s => Object.values(s.turmas || {}).forEach(t => (t.alunos || []).forEach(a => { nomes[a.matricula] = a.nome; }))));
+  const msgs = mats.map(m => {
+    const pn = (nomes[m] || '').split(' ')[0] || ''; const primeiro = pn.charAt(0) + pn.slice(1).toLowerCase();
+    const linhas = mudancas[m].map(x => { const d = _disc(x.discId); return `${d.codigo} · ${d.nome}${d.sufixo ? ' — ' + d.sufixo : ''}: ${x.cats.join(', ')}`; });
+    const pessoal = `${url}#m=${encodeURIComponent(m)}&c=${codigoAluno(m)}`;
+    const assunto = `Novidades no Portal do Aluno — ${mudancas[m].map(x => _disc(x.discId).codigo).join(', ')}`;
+    const texto = `Olá, ${primeiro}!\n\nHá novidades no seu Portal do Aluno:\n\n${linhas.map(l => '• ' + l).join('\n')}\n\nVer minhas notas:\n${pessoal}\n\nProf. Hugo José Ribeiro\nEECA/UFG`;
+    const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#13243A;line-height:1.5;max-width:520px"><p>Olá, ${_esc(primeiro)}!</p>
+      <p>Há novidades no seu Portal do Aluno:</p><ul>${linhas.map(l => `<li>${_esc(l)}</li>`).join('')}</ul>
+      <p><a href="${pessoal}" style="display:inline-block;background:#1F5FAE;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold">Ver minhas notas</a></p>
+      <p>Prof. Hugo José Ribeiro<br>EECA/UFG</p></div>`;
+    return { mat: m, para: emails[m], assunto, texto, html };
+  });
+  let enviados = 0; const falhas = [];
+  for (let i = 0; i < msgs.length; i += 20) {
+    try {
+      const r = await _postScript({ remetente: 'Prof. Hugo José Ribeiro', mensagens: msgs.slice(i, i + 20) });
+      if (!r.ok) throw new Error(r.erro || 'falha no Apps Script');
+      r.resultados.forEach(x => { if (x.ok) enviados++; else falhas.push(`${x.mat}: ${x.erro}`); });
+    } catch (e) { falhas.push(e.message); break; }
+  }
+  log.innerHTML += `<br><span style="color:var(--accent2);font-weight:700">✉ ${enviados} aviso(s) enviado(s).</span>` + (falhas.length ? ` <span style="color:var(--danger)">${falhas.length} falha(s): ${_esc(falhas.join('; '))}</span>` : '');
+}
 
 // ══════════════════════════════════════════════════════════
 //  TABS / MODAL / TOAST / UTIL
