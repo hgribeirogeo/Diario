@@ -289,6 +289,9 @@
   .cc-pend { color: var(--muted); font-style: italic; }
   .cc-sem { color: var(--muted); opacity: .7; }
   .cc-nota { font-size: .76rem; color: var(--warn); margin: 4px 0; }
+  .cc-baixa { background: #3d8ef01f; color: var(--accent); font-style: italic; }
+  .cc-baixa-aviso { font-size: .8rem; background: #f0a03018; border: 1px solid var(--warn); border-radius: 8px; padding: 8px 10px; margin: 6px 0; line-height: 1.8; }
+  .cc-th { cursor: pointer; } .cc-th small { color: var(--warn); font-weight: 400; }
   .cc-lista { font-size: .8rem; line-height: 1.6; margin-top: 8px; }
   .cc-t-alt { color: var(--warn); font-weight: 700; } .cc-t-conf { color: var(--danger); font-weight: 700; }
   #tab-diario h4 { margin: 12px 0 6px; font-size: .9rem; }
@@ -4233,17 +4236,54 @@ function _regraConciliacao(v, temPratica, presente, tH, pH) {
   if (v === pH || v === tH) return ok;
   return { tipo: 'conferir', v, alvo: null };
 }
+// Em dia de folga, a prática conta como presença para todos: o SIGAA deve ter só a falta da teoria.
+// Pela convenção da chamada da teoria (0 = presente, teoria+prática = faltou o dia), um valor igual às horas
+// da prática só pode ter vindo de um ajuste de prática, então a sugestão é voltar a 0 (marcado para conferir).
+function _regraFolga(v, tH, pH) {
+  if (v === undefined || v === 0) return { tipo: 'folga', v, alvo: v };
+  if (tH === 0) return { tipo: 'alterar', v, alvo: 0 };                              // dia só de prática
+  if (v === tH + pH) return { tipo: 'alterar', v, alvo: tH };                         // faltou o dia: fica só a teoria
+  if (v === pH) return { tipo: 'conferir', v, alvo: 0, motivo: 'falta de prática numa folga' };
+  return { tipo: 'conferir', v, alvo: null };
+}
+const ADESAO_MINIMA = 0.5;   // abaixo de metade da turma registrando, a data pede confirmação (possível folga)
 function calcularConciliacao(tid) {
-  const c = chamadaCfg().turmas[tid], f = ctxData().freq, regs = (ctxData().praticas || {}).regs || [];
-  const alunos = (ctxTurmas()[tid] || {}).alunos || [], pres = {};
-  regs.filter(r => r.t === tid).forEach(r => { (pres[r.d] = pres[r.d] || new Set()).add(r.m); });
+  const d0 = ctxData(), c = chamadaCfg().turmas[tid], f = d0.freq, regs = (d0.praticas || {}).regs || [];
+  const folgas = d0.folgas || [], confirmadas = d0.praticaConfirmada || [];
+  const alunos = (ctxTurmas()[tid] || {}).alunos || [], naTurma = new Set(alunos.map(a => a.matricula)), pres = {};
+  regs.filter(r => r.t === tid && naTurma.has(r.m)).forEach(r => { (pres[r.d] = pres[r.d] || new Set()).add(r.m); });
   const datas = new Set(Object.keys(pres));
   alunos.forEach(a => Object.keys((f && f.alunos && f.alunos[a.matricula] && f.alunos[a.matricula].dias) || {}).forEach(d => datas.add(d)));
-  const lista = [...datas].filter(d => c.dias.includes(_dowISO(d))).sort();
-  return { lista, linhas: alunos.map(a => ({ a, cels: lista.map(d => {
-    const dias = f && f.alunos && f.alunos[a.matricula] && f.alunos[a.matricula].dias;
-    return _regraConciliacao(dias ? dias[d] : undefined, !!(pres[d] && pres[d].size), !!(pres[d] && pres[d].has(a.matricula)), c.horasT, c.horasP);
-  }) })), semRegistro: lista.filter(d => !(pres[d] && pres[d].size)) };
+  const lista = [...datas].filter(d => c.dias.includes(_dowISO(d))).sort(), info = {};
+  lista.forEach(d => {
+    const nReg = pres[d] ? pres[d].size : 0, folga = folgas.includes(d);
+    info[d] = { n: nReg, total: alunos.length, folga, baixa: !folga && nReg > 0 && nReg < alunos.length * ADESAO_MINIMA && !confirmadas.includes(d) };
+  });
+  return { lista, info, linhas: alunos.map(a => ({ a, cels: lista.map(d => {
+    const dias = f && f.alunos && f.alunos[a.matricula] && f.alunos[a.matricula].dias, v = dias ? dias[d] : undefined;
+    if (info[d].folga) return _regraFolga(v, c.horasT, c.horasP);    // folga: a prática conta como presença para todos
+    const x = _regraConciliacao(v, info[d].n > 0, !!(pres[d] && pres[d].has(a.matricula)), c.horasT, c.horasP);
+    if (info[d].baixa && (x.tipo === 'alterar' || x.tipo === 'conflito' || x.tipo === 'conferir')) return { ...x, tipo: 'baixa' };
+    return x;
+  }) })), semRegistro: lista.filter(d => !info[d].n && !info[d].folga) };
+}
+function marcarFolga(d, on) {
+  const d0 = ctxData();
+  d0.folgas = (d0.folgas || []).filter(x => x !== d); if (on) d0.folgas.push(d);
+  d0.praticaConfirmada = (d0.praticaConfirmada || []).filter(x => x !== d);
+  saveAll(); renderConciliacao();
+}
+function confirmarPratica(d) {
+  const d0 = ctxData();
+  d0.folgas = (d0.folgas || []).filter(x => x !== d);
+  d0.praticaConfirmada = [...new Set([...(d0.praticaConfirmada || []), d])];
+  saveAll(); renderConciliacao();
+}
+async function alternarFolgaData(d) {
+  const ja = (ctxData().folgas || []).includes(d);
+  if (await ui.confirmar(ja ? `Desfazer a folga de ${_dm(d)}? A data volta a ser tratada pelos registros de presença.`
+                            : `Marcar ${_dm(d)} como folga? Ninguém recebe falta da prática nessa data, mesmo quem não registrou.`,
+                         { titulo: 'Folga da aula prática', ok: ja ? 'Desfazer folga' : 'Marcar folga' })) marcarFolga(d, !ja);
 }
 function _dm(iso) { const [, m, d] = iso.split('-'); return `${d}/${m}`; }
 function renderConciliacao() {
@@ -4254,7 +4294,7 @@ function renderConciliacao() {
   if (!ctxData().praticas) { div.innerHTML = '<p style="color:var(--warn)">Clique em "Buscar registros" na chamada da prática.</p>'; return; }
   const ativas = Object.entries(chamadaCfg().turmas).filter(([t, c]) => c.ativa && ctxTurmas()[t]);
   const blocos = [], csv = [['Turma', 'Data', 'Matrícula', 'Nome', 'SIGAA atual', 'Lançar', 'Tipo']];
-  let nAlt = 0, nConf = 0, nPend = 0;
+  let nAlt = 0, nConf = 0, nPend = 0, nBaixa = 0;
   ativas.forEach(([tid]) => {
     const R = calcularConciliacao(tid);
     if (!R.lista.length) { blocos.push(`<h4>Turma ${tid}</h4><p style="color:var(--muted)">Nenhuma data de prática no mapa nem nos registros.</p>`); return; }
@@ -4264,23 +4304,31 @@ function renderConciliacao() {
         (porData[R.lista[i]] = porData[R.lista[i]] || []).push({ a: L.a, x });
         csv.push([tid, _dm(R.lista[i]), L.a.matricula, L.a.nome, x.v === null ? '' : x.v, x.alvo === null ? '?' : x.alvo, x.tipo]);
       }
-      if (x.tipo === 'alterar') nAlt++; if (x.tipo === 'conflito' || x.tipo === 'conferir') nConf++; if (x.tipo === 'pendente') nPend++;
+      if (x.tipo === 'alterar') nAlt++; if (x.tipo === 'conflito' || x.tipo === 'conferir') nConf++; if (x.tipo === 'pendente') nPend++; if (x.tipo === 'baixa') nBaixa++;
     }));
     const cel = x => x.tipo === 'alterar' ? `<td class="cc-alt" title="Lançar ${x.alvo}">${x.v === null ? '—' : x.v}→${x.alvo}</td>`
       : x.tipo === 'conflito' ? `<td class="cc-conf" title="O SIGAA tem ${x.v} h de falta, mas houve registro de presença na prática. Sugestão: ${x.alvo}. Confira.">${x.v}→${x.alvo}?</td>`
-      : x.tipo === 'conferir' ? `<td class="cc-conf" title="Valor fora do padrão: confira">${x.v}?</td>`
+      : x.tipo === 'conferir' ? `<td class="cc-conf" title="${x.motivo ? 'Falta de prática lançada numa folga: deve voltar a ' + x.alvo : 'Valor fora do padrão: confira'}">${x.v}${x.alvo !== null && x.alvo !== undefined ? '→' + x.alvo : ''}?</td>`
       : x.tipo === 'pendente' ? `<td class="cc-pend" title="Teoria ainda não lançada no SIGAA; prática: ${x.presente ? 'presente' : 'faltou'}">${x.presente ? 'P' : 'F'}</td>`
       : x.tipo === 'sem' ? `<td class="cc-sem" title="Nenhum registro de presença nesta data">${x.v === undefined ? '' : x.v}</td>`
+      : x.tipo === 'folga' ? `<td class="cc-sem" title="Folga: ninguém recebe falta da prática">${x.v === undefined ? '' : x.v}</td>`
+      : x.tipo === 'baixa' ? `<td class="cc-baixa" title="Poucos registros nesta data: confirme se houve prática">${x.v === null || x.v === undefined ? '—' : x.v}?</td>`
       : `<td>${x.v}</td>`;
     blocos.push(`<h4>Turma ${tid}</h4>
       ${R.semRegistro.length ? `<p class="cc-nota">Sem nenhum registro de presença em ${R.semRegistro.map(_dm).join(', ')}: tratado como dia sem aula prática. Se houve prática, confira.</p>` : ''}
-      <div class="table-wrap"><table class="cc-tab"><thead><tr><th style="text-align:left">Aluno</th>${R.lista.map(d => `<th>${_dm(d)}</th>`).join('')}</tr></thead><tbody>
+      ${R.lista.filter(d => R.info[d].baixa).map(d => `<div class="cc-baixa-aviso">⚠ <b>${_dm(d)}</b>: só ${R.info[d].n} de ${R.info[d].total} alunos registraram presença. Nenhuma falta é sugerida até você confirmar.
+        <button class="btn btn-ghost btn-sm" onclick="marcarFolga('${d}', true)">Foi folga</button>
+        <button class="btn btn-ghost btn-sm" onclick="confirmarPratica('${d}')">Houve prática</button></div>`).join('')}
+      ${R.lista.filter(d => R.info[d].folga).map(d => `<div class="cc-nota" style="color:var(--muted)">${_dm(d)}: marcada como <b>folga</b> (ninguém recebe falta da prática).
+        <button class="btn btn-ghost btn-sm" onclick="marcarFolga('${d}', false)">Desfazer</button></div>`).join('')}
+      <div class="table-wrap"><table class="cc-tab"><thead><tr><th style="text-align:left">Aluno</th>${R.lista.map(d =>
+        `<th class="cc-th" onclick="alternarFolgaData('${d}')" title="Clique para marcar ou desfazer folga">${_dm(d)}${R.info[d].folga ? '<br><small>folga</small>' : R.info[d].baixa ? '<br><small>⚠ ' + R.info[d].n + '/' + R.info[d].total + '</small>' : ''}</th>`).join('')}</tr></thead><tbody>
       ${R.linhas.map(L => `<tr><td style="white-space:nowrap">${_esc(L.a.nome.split(' ').slice(0, 3).join(' '))}</td>${L.cels.map(cel).join('')}</tr>`).join('')}</tbody></table></div>
       ${Object.keys(porData).length ? `<div class="cc-lista"><b>O que lançar no SIGAA (turma ${tid}):</b>${Object.keys(porData).sort().map(d => `<div><b>${_dm(d)}</b>: ${porData[d].map(({ a, x }) =>
         `${_esc(a.nome)} <span class="${x.tipo === 'alterar' ? 'cc-t-alt' : 'cc-t-conf'}">${x.v === null ? '—' : x.v} → ${x.alvo === null ? '?' : x.alvo}${x.tipo !== 'alterar' ? ' (conferir)' : ''}</span>`).join('; ')}</div>`).join('')}</div>`
         : '<p style="color:var(--accent2)">✓ Nada a alterar no SIGAA nesta turma.</p>'}`);
   });
-  div.innerHTML = `<p style="font-size:.82rem">${nAlt} alteração(ões) a lançar · ${nConf} para conferir · ${nPend} aguardando a chamada da teoria.
+  div.innerHTML = `<p style="font-size:.82rem">${nAlt} alteração(ões) a lançar · ${nConf} para conferir · ${nPend} aguardando a chamada da teoria${nBaixa ? ` · <b style="color:var(--warn)">${nBaixa} aguardando você confirmar se houve prática</b>` : ''}.
     <span style="color:var(--muted)">Legenda: <span class="cc-alt" style="padding:0 4px">0→3</span> lançar · <span class="cc-conf" style="padding:0 4px">6→3?</span> conferir · <span class="cc-pend" style="padding:0 4px">P/F</span> prática registrada, teoria ainda não lançada.</span></p>` + blocos.join('');
   div.dataset.csv = csv.map(r => r.join(';')).join('\n');
 }
