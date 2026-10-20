@@ -150,6 +150,7 @@
   .ch-hor { color: var(--soft); font-size: .88rem; margin-top: 2px; }
   .ch-msg { margin-top: 10px; font-weight: 700; }
   .ch-tempo { margin: 8px 0 2px; font-size: .9rem; color: var(--soft); }
+  .ch-instr { margin-top: 10px; font-weight: 700; font-size: .95rem; }
   .ch-tempo.urgente { color: var(--pend); font-weight: 700; }
   .gauge.clicavel { cursor: pointer; } .gauge.clicavel:focus { outline: 2px solid var(--blue); outline-offset: 2px; }
   .ver-hist { color: var(--blue) !important; font-weight: 700; margin-top: 2px; }
@@ -254,6 +255,7 @@
   } catch (e) {}
   let _doCache = false;
   const PCH = qs.get('p');                 // QR da chamada: disciplina~semestre~turma
+  const TOK = qs.get('t'), PASSO = qs.get('s');   // código do QR dinâmico exibido pelo professor
   let _cred = null, _chamURL = null;
   const te = new TextEncoder(), td = new TextDecoder();
   const $ = id => document.getElementById(id);
@@ -535,7 +537,8 @@
     document.getElementById('chamada-box')?.remove();
     if (!_chamURL) return;
     const a = _agoraLocal();
-    _chamadas = (d.disciplinas || []).filter(x => x.chamada).map(x => ({ ...x.chamada, disciplina: x.disciplina }))
+    _chamadas = (d.disciplinas || []).filter(x => x.chamada).map(x => ({ ...x.chamada, disciplina: x.disciplina,
+        comQR: !!TOK && PCH === `${x.chamada.disc}~${x.chamada.sem}~${x.chamada.turma}` }))
       .filter(ch => (ch.dias.includes(a.dow) && a.hm >= ch.ini && a.hm <= ch.fim) || PCH === `${ch.disc}~${ch.sem}~${ch.turma}`);
     if (!_chamadas.length) return;
     const box = document.createElement('div'); box.id = 'chamada-box';
@@ -543,10 +546,11 @@
       <div class="ch-tit">Aula prática · ${esc(String(ch.disciplina).split(' · ')[0])} · turma ${esc(ch.turma)}</div>
       <div class="ch-hor">Chamada aberta nas ${ch.dias.map(x => _DS[x]).join(' e ')}, das ${esc(ch.ini)} às ${esc(ch.fim)}</div>
       <div class="ch-tempo" id="ch-tempo-${i}"></div>
-      <button class="primary" type="button" id="ch-btn-${i}">Registrar presença</button>
+      ${ch.comQR ? `<button class="primary" type="button" id="ch-btn-${i}">Registrar presença</button>`
+        : `<div class="ch-instr">📷 Para registrar presença, escaneie o QR exibido pelo professor na aula.</div>`}
       <div class="ch-msg" id="ch-msg-${i}" role="status" aria-live="polite"></div></div>`).join('');
     $('res').prepend(box);
-    _chamadas.forEach((ch, i) => { $('ch-btn-' + i).onclick = () => _registrarPresenca(i); });
+    _chamadas.forEach((ch, i) => { const b = $('ch-btn-' + i); if (b) b.onclick = () => _registrarPresenca(i); });
     _tempoChamada(); clearInterval(window._relogioCh); window._relogioCh = setInterval(_tempoChamada, 30000);
   }
   // "A chamada fecha em 52 min": destaque na última hora, enquanto a presença não foi registrada
@@ -558,7 +562,8 @@
       const hoje = ch.dias.includes(a.dow) && a.hm >= ch.ini;
       if (btn && btn.disabled && btn.textContent === 'Presença registrada') { el.className = 'ch-tempo'; el.textContent = ''; return; }
       if (!hoje || resta < 0) { el.className = 'ch-tempo'; el.textContent = ''; return; }
-      if (resta <= 60) { el.className = 'ch-tempo urgente'; el.textContent = `⏰ A chamada fecha em ${resta} min. Se você está na aula, registre sua presença agora.`; }
+      if (resta <= 60) { el.className = 'ch-tempo urgente'; el.textContent = btn ? `⏰ A chamada fecha em ${resta} min. Se você está na aula, registre sua presença agora.`
+                                                                      : `⏰ A chamada fecha em ${resta} min. Se você está na aula, escaneie o QR exibido pelo professor.`; }
       else { el.className = 'ch-tempo'; el.textContent = `A chamada fica aberta até as ${ch.fim}.`; }
     });
   }
@@ -567,11 +572,12 @@
     btn.disabled = true; btn.textContent = 'Registrando…'; msg.className = 'ch-msg'; msg.textContent = '';
     try {
       const r = await fetch(_chamURL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ acao: 'presenca', disc: ch.disc, sem: ch.sem, turma: ch.turma, mat: _cred.mat, cod: _cred.cod, ts: new Date().toISOString() }) });
+        body: JSON.stringify({ acao: 'presenca', disc: ch.disc, sem: ch.sem, turma: ch.turma, mat: _cred.mat, cod: _cred.cod, tok: TOK, passo: PASSO, ts: new Date().toISOString() }) });
       const j = await r.json();
       if (j.status === 'registrado') { msg.className = 'ch-msg ok'; msg.textContent = `✓ Presença registrada às ${j.hora}.`; btn.textContent = 'Presença registrada'; _tempoChamada(); return; }
       if (j.status === 'duplicado') { msg.className = 'ch-msg ok'; msg.textContent = '✓ Sua presença de hoje já estava registrada.'; btn.textContent = 'Presença registrada'; _tempoChamada(); return; }
       msg.className = 'ch-msg err'; msg.textContent = j.erro || 'Não foi possível registrar.';
+      if (j.status === 'qr_expirado' || j.status === 'sem_qr') { btn.textContent = 'Escaneie o QR de novo'; return; }
     } catch (e) {
       msg.className = 'ch-msg err'; msg.textContent = navigator.onLine === false ? 'Sem internet. Conecte-se e tente de novo.' : 'O servidor da chamada não respondeu. Tente de novo.';
     }

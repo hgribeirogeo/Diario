@@ -289,6 +289,13 @@
   .cc-pend { color: var(--muted); font-style: italic; }
   .cc-sem { color: var(--muted); opacity: .7; }
   .cc-nota { font-size: .76rem; color: var(--warn); margin: 4px 0; }
+  .qrcham-modal { text-align: center; width: min(560px, 96vw); }
+  .qrcham-tit { font-weight: 700; font-size: 1rem; }
+  .qrcham-qr img { width: min(78vw, 60vh, 460px); height: auto; background: #fff; padding: 10px; border-radius: 10px; image-rendering: pixelated; }
+  .qrcham-barra { height: 6px; background: var(--border); border-radius: 4px; margin: 10px auto 6px; max-width: 460px; overflow: hidden; }
+  .qrcham-barra > div { height: 100%; background: var(--accent2); transition: width 1s linear; }
+  .qrcham-info { font-size: .85rem; color: var(--muted); }
+  .qrcham-cont { font-size: 1rem; font-weight: 700; color: var(--accent2); margin-top: 6px; min-height: 1.4em; }
   .cc-abono { background: #27c98f22; color: var(--accent2); font-weight: 700; }
   .cc-baixa { background: #3d8ef01f; color: var(--accent); font-style: italic; }
   .cc-baixa-aviso { font-size: .8rem; background: #f0a03018; border: 1px solid var(--warn); border-radius: 8px; padding: 8px 10px; margin: 6px 0; line-height: 1.8; }
@@ -605,7 +612,7 @@
 <section class="section" id="tab-diario">
   <div class="card">
     <div class="card-title">Chamada da aula prática (Portal do Aluno)</div>
-    <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin-bottom:10px">O aluno escaneia o QR da turma e toca em <b style="color:var(--text)">Registrar presença</b> no Portal, com o código pessoal. O servidor confere o código e a janela de horário pelo relógio dele.</p>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin-bottom:10px">Na aula, toque em <b style="color:var(--text)">Exibir QR da chamada</b>: o QR muda a cada 30 s, e cada aluno escaneia da sua tela e toca em <b style="color:var(--text)">Registrar presença</b> no Portal, com o código pessoal. Um código vale por 3 minutos, então uma foto repassada a quem não está na aula expira. O servidor confere tudo pelo relógio dele.</p>
     <label style="font-size:.78rem;color:var(--muted);display:block;margin-bottom:8px">URL do Apps Script da chamada
       <input type="text" id="cham-url" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;margin-top:4px" oninput="setChamadaURL(this.value)"></label>
     <div id="chamada-turmas" class="table-wrap"></div>
@@ -613,7 +620,7 @@
       <button class="btn btn-ghost btn-sm" onclick="copiarScriptChamada()">📋 Copiar código do Apps Script</button>
       <button class="btn btn-ghost btn-sm" onclick="testarChamada()">🔌 Testar</button>
       <button class="btn btn-primary btn-sm" onclick="enviarConfigChamada()">Enviar configuração</button>
-      <button class="btn btn-ghost btn-sm" onclick="imprimirQRChamada()">🖨 Imprimir QR das turmas</button>
+      <button class="btn btn-primary btn-sm" onclick="exibirQRChamada()">📱 Exibir QR da chamada</button>
       <button class="btn btn-success btn-sm" onclick="buscarRegistrosChamada()">⬇ Buscar registros</button>
     </div>
     <div id="cham-info" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
@@ -637,6 +644,7 @@
  *    Se você copiou pelo DiárioProf, a CHAVE já vem preenchida.
  * 2. Implantar → Gerenciar implantações → ✏ → Versão: Nova versão → Implantar (a URL continua a mesma).
  * 3. No DiárioProf, aba Diário → Chamada da prática: cole a URL e clique em "Enviar configuração".
+ *    Na aula, toque em "Exibir QR da chamada": o QR muda a cada 30 s e os alunos escaneiam da sua tela.
  * 4. Lembretes por e-mail (1 h antes do fim da aula, só para quem ainda não registrou):
  *    no editor, escolha a função instalarLembretes no menu ao lado de "Executar" e clique em Executar (uma única vez).
  */
@@ -645,6 +653,11 @@ const SPREADSHEET_ID = '19zhhPHu5v6UzW6is2E5fNU9YCTYb2HZC0s3hCLohD0U';
 const FUSO = 'America/Sao_Paulo';
 const CAB = ['data_aula', 'matricula', 'nome', 'turma', 'timestamp_aluno', 'timestamp_servidor', 'origem', 'disciplina', 'semestre'];
 const DIAS = ['', 'segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados', 'domingos'];
+// QR dinâmico: o celular do professor mostra um código que muda a cada 30 s; aceito até 3 min depois.
+const PASSO_S = 30, PASSOS_ACEITOS = 6;
+function tokenQR(disc, sem, turma, passo) {
+  return hex(Utilities.computeHmacSha256Signature(disc + '|' + sem + '|' + turma + '|' + passo, CHAVE, Utilities.Charset.UTF_8)).slice(0, 12);
+}
 
 function doGet(e)  { return tratar(e); }
 function doPost(e) { return tratar(e); }
@@ -737,6 +750,12 @@ function registrarPortal(req) {
   if (t.dias.indexOf(a.dow) < 0 || a.hm < t.ini || a.hm > t.fim) {
     return { ok: false, status: 'fora_horario', erro: 'A chamada desta turma fica aberta nas ' + t.dias.map(d => DIAS[d]).join(' e ') + ', das ' + t.ini + ' às ' + t.fim + '.' };
   }
+  // Prova de presença: código do QR exibido pelo professor, ainda válido
+  if (!req.tok) return { ok: false, status: 'sem_qr', erro: 'Para registrar presença, escaneie o QR exibido pelo professor na aula.' };
+  const p = Number(req.passo), agoraP = Math.floor(new Date().getTime() / 1000 / PASSO_S);
+  if (!(p >= agoraP - PASSOS_ACEITOS && p <= agoraP + 1) || tokenQR(req.disc, req.sem, req.turma, p) !== String(req.tok)) {
+    return { ok: false, status: 'qr_expirado', erro: 'Este QR expirou. Escaneie de novo o QR na tela do professor.' };
+  }
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
   try {
     const aba = abaRespostas();
@@ -748,6 +767,10 @@ function registrarPortal(req) {
 
 // ── QR antigo: continua funcionando, mas só no dia da aula pelo relógio do servidor ──
 function registrarLegado(p) {
+  // QR por data desativado: permitia registrar à distância (foto do QR). O formulário antigo não lê a resposta.
+  return { status: 'desativado', message: 'Os QR por data foram substituídos pelo QR exibido pelo professor.' };
+}
+function registrarLegadoDesativado(p) {
   const a = agora();
   if (p.date !== a.data) return { status: 'fora_do_dia', message: 'Este QR Code não vale hoje.' };
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
@@ -803,8 +826,8 @@ function enviarLembretes() {
       MailApp.sendEmail({
         to: al.e, name: 'Prof. Hugo José Ribeiro',
         subject: 'Lembrete: registre sua presença — ' + disc,
-        body: 'Olá, ' + primeiro + '!\n\nSua aula prática de ' + disc + ' termina em cerca de 1 hora. ' +
-              'Se você está na aula, registre sua presença no Portal do Aluno' + (cfg.portal ? ':\n' + cfg.portal : '.') +
+        body: 'Olá, ' + primeiro + '!\n\nSua aula prática de ' + disc + ' termina em cerca de 1 hora e sua presença ainda não foi registrada. ' +
+              'Se você está na aula, peça ao professor para exibir o QR da chamada e escaneie com o celular.' +
               '\n\nA chamada fecha às ' + t.fim + '.\n\nProf. Hugo José Ribeiro\nEECA/UFG'
       });
       enviados++;
@@ -1246,6 +1269,19 @@ function resp(o) {
       <button class="btn btn-ghost" onclick="baixarFechamentoCSV()">Baixar CSV</button>
       <button class="btn btn-primary" onclick="closeModal('modal-sigaa')">Fechar</button>
     </div>
+  </div>
+</div>
+
+<!-- QR DINÂMICO DA CHAMADA -->
+<div class="modal-backdrop" id="modal-qrcham">
+  <div class="modal qrcham-modal">
+    <div class="qrcham-tit" id="qrcham-tit">Chamada</div>
+    <div id="qrcham-turmas" style="margin:6px 0"></div>
+    <div class="qrcham-qr"><img id="qrcham-img" alt="QR da chamada"></div>
+    <div class="qrcham-barra"><div id="qrcham-prog"></div></div>
+    <div id="qrcham-info" class="qrcham-info"></div>
+    <div id="qrcham-cont" class="qrcham-cont"></div>
+    <div class="modal-actions" style="justify-content:center"><button class="btn btn-primary" onclick="fecharQRChamada()">Encerrar exibição</button></div>
   </div>
 </div>
 
@@ -4280,6 +4316,58 @@ async function buscarRegistrosChamada() {
     _logCham(`<span style="color:var(--accent2)">✓ ${regs.length} registro(s) de presença nesta disciplina.</span>`);
   } catch (e) { _logCham(`<span style="color:var(--danger)">⚠ ${_esc(e.message)}</span>`); }
 }
+// ── QR dinâmico: muda a cada 30 s; o servidor aceita cada código por até 3 min ──
+async function tokenChamada(disc, sem, turma, passo) {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey('raw', enc.encode(_chaveServicos()), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', k, enc.encode(`${disc}|${sem}|${turma}|${passo}`)));
+  return Array.from(sig, b => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+}
+async function linkChamadaDinamico(tid, quando = Date.now()) {
+  const passo = Math.floor(quando / 30000);
+  return `${portalURL()}&p=${encodeURIComponent(ctx.discId + '~' + semKey() + '~' + tid)}&t=${await tokenChamada(ctx.discId, semKey(), tid, passo)}&s=${passo}`;
+}
+let _qrCham = null;
+function exibirQRChamada() {
+  if (!portalURL()) { ui.avisar('Publique o portal desta disciplina antes de exibir o QR da chamada.', { titulo: 'QR da chamada' }); return; }
+  if (typeof QRCode === 'undefined') { ui.avisar('A biblioteca de QR code não carregou.', { titulo: 'QR da chamada' }); return; }
+  const ativas = Object.entries(chamadaCfg().turmas).filter(([t, c]) => c.ativa && ctxTurmas()[t]).map(([t]) => t);
+  if (!ativas.length) { ui.avisar('Nenhuma turma com chamada ativa.', { titulo: 'QR da chamada' }); return; }
+  _qrCham = { tid: ativas[0], passo: null };
+  document.getElementById('qrcham-turmas').innerHTML = ativas.length > 1 ? ativas.map(t => `<button class="btn btn-ghost btn-sm" onclick="_qrChamTurma('${t}')">Turma ${t}</button>`).join(' ') : '';
+  openModal('modal-qrcham');
+  _qrChamTick(); _qrCham.timer = setInterval(_qrChamTick, 1000);
+  _qrChamContagem(); _qrCham.cont = setInterval(_qrChamContagem, 20000);
+  try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { if (_qrCham) _qrCham.wake = w; else w.release(); }).catch(() => {}); } catch (e) {}
+}
+function _qrChamTurma(t) { if (!_qrCham) return; _qrCham.tid = t; _qrCham.passo = null; _qrChamTick(); _qrChamContagem(); }
+async function _qrChamTick() {
+  if (!_qrCham) return;
+  const agora = Date.now(), passo = Math.floor(agora / 30000), resta = 30 - Math.floor((agora / 1000) % 30);
+  document.getElementById('qrcham-prog').style.width = (resta / 30 * 100) + '%';
+  document.getElementById('qrcham-info').textContent = `Novo código em ${resta} s. Cada código vale por 3 minutos.`;
+  if (passo === _qrCham.passo) return;
+  _qrCham.passo = passo;
+  const tid = _qrCham.tid, link = await linkChamadaDinamico(tid, agora);
+  if (!_qrCham || _qrCham.tid !== tid) return;
+  const img = document.getElementById('qrcham-img'); img.src = _qrDataURL(link, 640); img.dataset.link = link;
+  document.getElementById('qrcham-tit').textContent = `${_disc(ctx.discId).codigo} · turma ${tid} · chamada aberta até ${chamadaCfg().turmas[tid].fim}`;
+}
+async function _qrChamContagem() {
+  const el = document.getElementById('qrcham-cont'); if (!el || !_qrCham) return;
+  if (!_chamadaURL()) { el.textContent = ''; return; }
+  try {
+    const r = await _postChamada({ acao: 'registros', chave: _chaveServicos() });
+    if (!r.ok || !_qrCham) throw new Error();
+    const hoje = (r.agora || '').slice(0, 10), tid = _qrCham.tid;
+    const nReg = new Set(r.registros.filter(x => x.d === hoje && x.disc === ctx.discId && x.sem === semKey() && x.t === tid).map(x => x.m)).size;
+    el.textContent = `${nReg} de ${ctxTurmas()[tid].alunos.length} alunos registraram presença hoje.`;
+  } catch (e) { el.textContent = 'Sem conexão para contar os registros. O QR continua funcionando.'; }
+}
+function fecharQRChamada() {
+  if (_qrCham) { clearInterval(_qrCham.timer); clearInterval(_qrCham.cont); try { if (_qrCham.wake) _qrCham.wake.release(); } catch (e) {} }
+  _qrCham = null; closeModal('modal-qrcham');
+}
 function imprimirQRChamada() {
   const url = portalURL();
   if (!url) { ui.avisar('Publique o portal desta disciplina antes de imprimir o QR da chamada.', { titulo: 'QR da chamada' }); return; }
@@ -4465,7 +4553,7 @@ document.querySelectorAll('.modal-backdrop').forEach(m => {
   let noFundo = false;
   m.addEventListener('mousedown', e => { noFundo = (e.target === m); });
   m.addEventListener('mouseup', e => {
-    if (noFundo && e.target === m) { if (m.id === 'modal-dlg') ui._cancelar(); else if (m.id === 'modal-lanc') fecharLancamento(); else m.classList.remove('open'); }
+    if (noFundo && e.target === m) { if (m.id === 'modal-dlg') ui._cancelar(); else if (m.id === 'modal-lanc') fecharLancamento(); else if (m.id === 'modal-qrcham') fecharQRChamada(); else m.classList.remove('open'); }
     noFundo = false;
   });
 });
