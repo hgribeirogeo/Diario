@@ -151,6 +151,12 @@
   .ch-msg { margin-top: 10px; font-weight: 700; }
   .ch-tempo { margin: 8px 0 2px; font-size: .9rem; color: var(--soft); }
   .ch-instr { margin-top: 10px; font-weight: 700; font-size: .95rem; }
+  .jornada { display: flex; gap: 12px; align-items: center; margin-top: 12px; padding: 10px 12px; background: var(--field); border: 1px solid var(--line); border-radius: 12px; }
+  .anel { width: 64px; height: 64px; flex-shrink: 0; }
+  .anel-txt { font-size: 15px; font-weight: 700; fill: var(--ink); }
+  .jor-itens { font-size: .9rem; line-height: 1.45; min-width: 0; }
+  .jor-tit { font-weight: 700; font-size: .95rem; }
+  .jor-passo { margin-top: 4px; }
   .ch-tempo.urgente { color: var(--pend); font-weight: 700; }
   .gauge.clicavel { cursor: pointer; } .gauge.clicavel:focus { outline: 2px solid var(--blue); outline-offset: 2px; }
   .ver-hist { color: var(--blue) !important; font-weight: 700; margin-top: 2px; }
@@ -461,6 +467,30 @@
         const q = _quando(datas[c.k]), passou = q.n < 0;
         return `<li class="${passou ? 'passou' : q.n <= 3 ? 'perto' : ''}"><span>${esc(c.nome)}</span><span>${_dBR(datas[c.k])} · ${passou ? q.txt + ', aguardando lançamento' : q.txt}</span></li>`; }).join('')}</ul>` : '';
 
+      // Sua jornada: progresso nas avaliações e na presença, e o próximo passo concreto
+      const pendentes = campos.filter(vazio), feitas = x.entregas || 0;
+      const diasAula = x.hist && x.hist.dias ? Object.values(x.hist.dias) : [], semFalta = diasAula.filter(v => v === 0).length;
+      const prox = pendentes.filter(c => datas[c.k] && _quando(datas[c.k]).n >= 0).sort((a, b) => datas[a.k] < datas[b.k] ? -1 : 1)[0];
+      let passo;
+      if (!pendentes.length) passo = 'todas as avaliações já têm nota. Agora é manter a presença até o fim do semestre.';
+      else if (prox) {
+        const vale = x.pesos && x.pesos[prox.k] ? x.pesos[prox.k] * 10 : null;
+        passo = `<b>${esc(prox.nome)}</b>, ${_dBR(datas[prox.k])} (${_quando(datas[prox.k]).txt})` +
+                (vale ? `. Pode somar até <b>${n2(vale)}</b> na sua média final.` : '.');
+      } else passo = `<b>${esc(pendentes[0].nome)}</b>, data ainda não definida.`;
+      const circ = 2 * Math.PI * 26, fr0 = total ? feitas / total : 0;
+      const jornada = `<div class="jornada">
+        <svg viewBox="0 0 64 64" class="anel" role="img" aria-label="${feitas} de ${total} avaliações com nota">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="var(--line)" stroke-width="7"/>
+          ${fr0 > 0 ? `<circle cx="32" cy="32" r="26" fill="none" stroke="var(--blue)" stroke-width="7" stroke-linecap="round"
+            stroke-dasharray="${(fr0 * circ).toFixed(1)} ${circ.toFixed(1)}" transform="rotate(-90 32 32)"/>` : ''}
+          <text x="32" y="37" text-anchor="middle" class="anel-txt">${feitas}/${total}</text></svg>
+        <div class="jor-itens">
+          <div class="jor-tit">Sua jornada</div>
+          <div>${feitas} de ${total} avaliações com nota${diasAula.length ? ` · ${semFalta} de ${diasAula.length} dias de aula sem falta` : ''}</div>
+          <div class="jor-passo">➜ Próximo passo: ${passo}</div>
+        </div></div>`;
+
       // simulador (só com os pesos publicados pela versão nova)
       const pend = campos.filter(vazio);
       let sim = '';
@@ -478,6 +508,7 @@
         <div class="meta">Semestre ${esc(x.semestre)}, turma ${esc(x.turma)}</div>
         <div class="sit"><span class="badge ${cls}">${txt}</span></div>
         ${avisoProf}
+        ${jornada}
         <div class="gauges">${gMedia}${gFreq}</div>
         ${fr ? _historico(x, idx) : ''}
         ${avisos.length ? `<ul class="avisos">${avisos.map(a => `<li>${a}</li>`).join('')}</ul>` : ''}
