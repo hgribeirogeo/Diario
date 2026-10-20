@@ -373,7 +373,7 @@
         : `<span class="h-falta">faltou ${ha ? _aulas(v / ha) : h1(v) + ' h'}</span>`;
       let p = '';
       if (pr) p = pr.folgas.includes(d) ? '<span class="h-pend">sem prática</span>' : pr.abonos.includes(d) ? '<span class="h-ok">confirmada pelo professor</span>'
-        : pr.registros.includes(d) ? '<span class="h-ok">✓ registrada</span>' : pr.datas.includes(d) ? '<span class="h-falta">✗ sem registro</span>' : '<span class="h-pend">—</span>';
+        : pr.registros.includes(d) ? '<span class="h-ok">✓ registrada</span>' : pr.datas.includes(d) ? '<span class="h-falta">✗ sem registro</span>' : '<span class="h-pend">sem chamada pelo QR</span>';
       return `<tr><td>${_SEM[new Date(d + 'T12:00:00').getDay()]}, ${_dBR(d)}</td><td>${sig}</td>${pr ? `<td>${p}</td>` : ''}</tr>`;
     }).join('');
     return `<div class="hist" id="hist-${idx}" hidden><h3>Histórico de presenças</h3>
