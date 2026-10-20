@@ -3156,6 +3156,8 @@ function _registrosContexto(discId, sk){
         aviso: dados.aviso && dados.aviso.texto ? { texto: dados.aviso.texto, em: dados.aviso.em } : null,
         datas: dados.datas || {}, pesos: pesosEsquema(discId),
         hAula: +disc.hAula || null,
+        primeiroNome: (() => { const p = String(a.nome || '').trim().split(/\s+/)[0] || ''; return p.charAt(0) + p.slice(1).toLowerCase(); })(),
+        lancadas: esquemaDe(discId).campos.map(cp => cp.k).filter(k => (t.alunos || []).some(x => preenchido(((dados.notas || {})[x.matricula] || {})[k]))),
         hist: (() => {    // histórico: SIGAA por data + registro da prática pelo QR
           const fa = dados.freq && dados.freq.alunos && dados.freq.alunos[a.matricula];
           const ch = dados.chamada && dados.chamada.turmas && dados.chamada.turmas[tid];

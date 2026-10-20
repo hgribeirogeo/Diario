@@ -151,6 +151,11 @@
   .ch-msg { margin-top: 10px; font-weight: 700; }
   .ch-tempo { margin: 8px 0 2px; font-size: .9rem; color: var(--soft); }
   .ch-instr { margin-top: 10px; font-weight: 700; font-size: .95rem; }
+  .saud { font-size: 1.15rem; font-weight: 700; color: var(--blue); margin-bottom: 2px; }
+  .alertas { margin-top: 12px; border: 1px solid var(--bad); border-left-width: 4px; border-radius: 10px; padding: 10px 12px; background: var(--field); }
+  .al-tit { font-weight: 700; color: var(--bad); margin-bottom: 4px; }
+  .alertas ul { margin: 0 0 0 18px; font-size: .9rem; } .alertas li + li { margin-top: 6px; }
+  .cal li.atraso span:last-child { color: var(--bad); font-weight: 700; }
   .jornada { display: flex; gap: 12px; align-items: center; margin-top: 12px; padding: 10px 12px; background: var(--field); border: 1px solid var(--line); border-radius: 12px; }
   .anel { width: 64px; height: 64px; flex-shrink: 0; }
   .anel-txt { font-size: 15px; font-weight: 700; fill: var(--ink); }
@@ -202,6 +207,7 @@
 <main class="wrap">
 
   <div class="top">
+    <div class="saud" id="saud" hidden></div>
     <h1>Minhas notas</h1>
     <p id="sub">Portal do Aluno · Prof. Hugo José Ribeiro · EECA/UFG</p>
   </div>
@@ -442,10 +448,20 @@
         else if (a.nota > 10) avisos.push(`Mesmo com 10 ${q}, a média final não chega a 6. <b>Procure o professor.</b>`);
         else avisos.push(`Para chegar à <b>média 6</b>, você precisa de média <b>${n2(a.nota)}</b> ${q}.`);
       }
+      // Alertas: atraso só quando a avaliação já foi corrigida para a turma e o aluno está sem nota
+      const alertas = [], lanc = x.lancadas || [], datasA = x.datas || {};
+      campos.filter(c => vazio(c) && lanc.includes(c.k)).forEach(c => {
+        const q = datasA[c.k] ? _quando(datasA[c.k]) : null;
+        alertas.push(q && q.n < 0
+          ? `<b>${esc(c.nome)}</b>: entrega atrasada há ${-q.n} dia${-q.n === 1 ? '' : 's'} (prevista para ${_dBR(datasA[c.k])}). A avaliação já foi corrigida para a turma e você está sem nota. Converse com o professor para regularizar.`
+          : `<b>${esc(c.nome)}</b>: a avaliação já foi corrigida para a turma e você está sem nota. Se não entregou, converse com o professor para regularizar.`);
+      });
       if (fr) {
         const ha = x.hAula;
-        if (fr.faltasH > fr.limiteH) avisos.push(`<b>Limite de faltas ultrapassado</b>: ${_emAulas(fr.faltasH, ha)} de falta, para um limite de ${_emAulas(fr.limiteH, ha)} (25% de ${fr.ch} h). Pelo regulamento, isso leva à reprovação por frequência. Procure o professor.`);
+        if (fr.faltasH > fr.limiteH) alertas.push(`<b>Limite de faltas ultrapassado</b>: ${_emAulas(fr.faltasH, ha)} de falta, para um limite de ${_emAulas(fr.limiteH, ha)} (25% de ${fr.ch} h). Pelo regulamento, isso leva à reprovação por frequência. Procure o professor.`);
         else {
+          if (fr.faltasH >= fr.limiteH * 0.75 && fr.faltasH > 0)
+            alertas.push(`<b>Atenção à frequência:</b> você já usou ${_emAulas(fr.faltasH, ha)} do limite de ${_emAulas(fr.limiteH, ha)}. Evite novas faltas.`);
           const resta = ha ? Math.floor(fr.restanteH / ha + 1e-9) : null;
           avisos.push(ha ? `Você ainda pode faltar <b>${_aulas(resta)}</b> (${h1(fr.restanteH)} h). Limite: ${_emAulas(fr.limiteH, ha)}, 25% de ${fr.ch} h.`
                          : `Você ainda pode faltar <b>${h1(fr.restanteH)} h</b> (limite de ${h1(fr.limiteH)} h, 25% de ${fr.ch} h).`);
@@ -465,7 +481,8 @@
       const agenda = campos.filter(c => vazio(c) && datas[c.k]).sort((a, b) => datas[a.k] < datas[b.k] ? -1 : 1);
       const cal = agenda.length ? `<h3>Próximas avaliações</h3><ul class="cal">${agenda.map(c => {
         const q = _quando(datas[c.k]), passou = q.n < 0;
-        return `<li class="${passou ? 'passou' : q.n <= 3 ? 'perto' : ''}"><span>${esc(c.nome)}</span><span>${_dBR(datas[c.k])} · ${passou ? q.txt + ', aguardando lançamento' : q.txt}</span></li>`; }).join('')}</ul>` : '';
+        const semNota = passou && (x.lancadas || []).includes(c.k);
+        return `<li class="${semNota ? 'atraso' : passou ? 'passou' : q.n <= 3 ? 'perto' : ''}"><span>${esc(c.nome)}</span><span>${_dBR(datas[c.k])} · ${semNota ? q.txt + ', sem nota (veja os alertas)' : passou ? q.txt + ', aguardando lançamento' : q.txt}</span></li>`; }).join('')}</ul>` : '';
 
       // Sua jornada: progresso nas avaliações e na presença, e o próximo passo concreto
       const pendentes = campos.filter(vazio), feitas = x.entregas || 0;
@@ -508,6 +525,7 @@
         <div class="meta">Semestre ${esc(x.semestre)}, turma ${esc(x.turma)}</div>
         <div class="sit"><span class="badge ${cls}">${txt}</span></div>
         ${avisoProf}
+        ${alertas.length ? `<div class="alertas" role="alert"><div class="al-tit">⚠ Alertas</div><ul>${alertas.map(a => `<li>${a}</li>`).join('')}</ul></div>` : ''}
         ${jornada}
         <div class="gauges">${gMedia}${gFreq}</div>
         ${fr ? _historico(x, idx) : ''}
@@ -526,6 +544,9 @@
     _sims.forEach((s, i) => { if (s) _simular(i); });
     try { localStorage.setItem(chave, JSON.stringify(novoVisto)); } catch (e) {}
     $('sub').textContent = `Matrícula ${d.matricula}`;
+    const h = new Date().getHours(), nome = (d.disciplinas || []).map(x => x.primeiroNome).find(Boolean);
+    $('saud').textContent = `${h >= 5 && h < 12 ? 'Bom dia' : h >= 12 && h < 18 ? 'Boa tarde' : 'Boa noite'}${nome ? ', ' + nome : ''}!`;
+    $('saud').hidden = false;
     $('upd').textContent = (_doCache ? 'Sem internet: mostrando a última versão salva neste celular. ' : '') +
       (atualizado ? `Notas publicadas em ${new Date(atualizado).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '');
     $('v-login').hidden = true; $('v-res').hidden = false;
@@ -616,6 +637,7 @@
   }
 
   function sair() {
+    $('saud').hidden = true; $('saud').textContent = '';
     try { localStorage.removeItem('portal_cred'); } catch (e) {}
     $('lembrar').checked = false;
     $('res').innerHTML = ''; $('mat').value = ''; $('cod').value = ''; $('msg').textContent = '';
