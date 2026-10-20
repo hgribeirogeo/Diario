@@ -149,6 +149,17 @@
   .ch-tit { font-weight: 700; font-size: 1.05rem; }
   .ch-hor { color: var(--soft); font-size: .88rem; margin-top: 2px; }
   .ch-msg { margin-top: 10px; font-weight: 700; }
+  .ch-tempo { margin: 8px 0 2px; font-size: .9rem; color: var(--soft); }
+  .ch-tempo.urgente { color: var(--pend); font-weight: 700; }
+  .gauge.clicavel { cursor: pointer; } .gauge.clicavel:focus { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .ver-hist { color: var(--blue) !important; font-weight: 700; margin-top: 2px; }
+  .hist { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .hist h3 { margin-top: 0; }
+  .hist table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .hist th, .hist td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  .hist th { font-size: .78rem; color: var(--soft); font-weight: 700; }
+  .hist td:first-child { white-space: nowrap; }
+  .h-ok { color: var(--ok); } .h-falta { color: var(--bad); font-weight: 700; } .h-pend { color: var(--soft); }
   .ch-msg.ok { color: var(--ok); } .ch-msg.err { color: var(--bad); }
   @media (max-width: 340px) { .gauges { grid-template-columns: 1fr; } }
 
@@ -347,6 +358,28 @@
     return { n, txt: n === 0 ? 'hoje' : n === 1 ? 'amanhã' : n > 1 ? `em ${n} dias` : n === -1 ? 'ontem' : `há ${-n} dias` };
   }
   const _dBR = iso => { const [, m, d] = iso.split('-'); return `${d}/${m}`; };
+  // Faltas em aulas (com as horas entre parênteses, para bater com o SIGAA)
+  const _num = v => Number.isInteger(v) ? String(v) : (Math.round(v * 10) / 10).toString().replace('.', ',');
+  const _aulas = n => n === 1 ? '1 aula' : `${_num(n)} aulas`;
+  const _emAulas = (h, ha) => ha ? `${_aulas(h / ha)} (${h1(h)} h)` : `${h1(h)} h`;
+  const _SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  function _historico(x, idx) {
+    const H = x.hist || {}, dias = H.dias || {}, pr = H.pratica, ha = x.hAula;
+    const datas = [...new Set([...Object.keys(dias), ...(pr ? [...pr.datas, ...pr.folgas, ...pr.registros] : [])])].sort();
+    if (!datas.length) return `<div class="hist" id="hist-${idx}" hidden><p class="note">O histórico aparece depois do próximo lançamento do professor.</p></div>`;
+    const linhas = datas.map(d => {
+      const v = dias[d];
+      const sig = v === undefined ? '<span class="h-pend">ainda não lançado</span>' : v === 0 ? '<span class="h-ok">presente</span>'
+        : `<span class="h-falta">faltou ${ha ? _aulas(v / ha) : h1(v) + ' h'}</span>`;
+      let p = '';
+      if (pr) p = pr.folgas.includes(d) ? '<span class="h-pend">sem prática</span>' : pr.abonos.includes(d) ? '<span class="h-ok">confirmada pelo professor</span>'
+        : pr.registros.includes(d) ? '<span class="h-ok">✓ registrada</span>' : pr.datas.includes(d) ? '<span class="h-falta">✗ sem registro</span>' : '<span class="h-pend">—</span>';
+      return `<tr><td>${_SEM[new Date(d + 'T12:00:00').getDay()]}, ${_dBR(d)}</td><td>${sig}</td>${pr ? `<td>${p}</td>` : ''}</tr>`;
+    }).join('');
+    return `<div class="hist" id="hist-${idx}" hidden><h3>Histórico de presenças</h3>
+      <table><thead><tr><th>Aula</th><th>SIGAA (oficial)</th>${pr ? '<th>Prática (QR)</th>' : ''}</tr></thead><tbody>${linhas}</tbody></table>
+      <p class="note">O registro oficial é o do SIGAA${ha ? `; cada aula tem ${ha} h` : ''}. ${pr ? 'A coluna "Prática" mostra o seu registro pelo QR. ' : ''}Se algo não confere, fale com o professor.</p></div>`;
+  }
 
   function cell(c, v, novo) {
     return v === null || v === undefined
@@ -387,7 +420,9 @@
       if (fr) {
         const pres = 100 - fr.pct, corF = fr.faltasH > fr.limiteH ? 'var(--bad)' : fr.faltasH > fr.ch * 0.2 ? 'var(--pend)' : 'var(--ok)';
         gFreq = medidor({ valor: pres, max: 100, limiar: 75, cor: corF, rotulo: 'Presença', texto: h1(pres) + '%',
-          sub: `mínimo 75% · ${h1(fr.faltasH)} h de falta${freqNova ? ' · atualizada' : ''}` });
+          sub: `mínimo 75% · ${x.hAula ? _aulas(fr.faltasH / x.hAula) : h1(fr.faltasH) + ' h'} de falta${freqNova ? ' · atualizada' : ''}` })
+          .replace('<figure class="gauge">', `<figure class="gauge clicavel" data-hist="${idx}" role="button" tabindex="0" aria-label="Ver histórico de presenças">`)
+          .replace('</figcaption>', '<span class="ver-hist">Ver histórico ›</span></figcaption>');
       } else {
         gFreq = `<figure class="gauge vazio"><div>Frequência<br>ainda não lançada</div><figcaption><b>Presença</b><span>mínimo 75%</span></figcaption></figure>`;
       }
@@ -400,8 +435,13 @@
         else avisos.push(`Para chegar à <b>média 6</b>, você precisa de média <b>${n2(a.nota)}</b> ${q}.`);
       }
       if (fr) {
-        if (fr.faltasH > fr.limiteH) avisos.push(`<b>Limite de faltas ultrapassado</b> (${h1(fr.faltasH)} h de ${h1(fr.limiteH)} h permitidas, 25% de ${fr.ch} h). Pelo regulamento, isso leva à reprovação por frequência. Procure o professor.`);
-        else avisos.push(`Você ainda pode faltar <b>${h1(fr.restanteH)} h</b> (limite de ${h1(fr.limiteH)} h, 25% de ${fr.ch} h).`);
+        const ha = x.hAula;
+        if (fr.faltasH > fr.limiteH) avisos.push(`<b>Limite de faltas ultrapassado</b>: ${_emAulas(fr.faltasH, ha)} de falta, para um limite de ${_emAulas(fr.limiteH, ha)} (25% de ${fr.ch} h). Pelo regulamento, isso leva à reprovação por frequência. Procure o professor.`);
+        else {
+          const resta = ha ? Math.floor(fr.restanteH / ha + 1e-9) : null;
+          avisos.push(ha ? `Você ainda pode faltar <b>${_aulas(resta)}</b> (${h1(fr.restanteH)} h). Limite: ${_emAulas(fr.limiteH, ha)}, 25% de ${fr.ch} h.`
+                         : `Você ainda pode faltar <b>${h1(fr.restanteH)} h</b> (limite de ${h1(fr.limiteH)} h, 25% de ${fr.ch} h).`);
+        }
       }
 
       const grupos = [];
@@ -437,6 +477,7 @@
         <div class="sit"><span class="badge ${cls}">${txt}</span></div>
         ${avisoProf}
         <div class="gauges">${gMedia}${gFreq}</div>
+        ${fr ? _historico(x, idx) : ''}
         ${avisos.length ? `<ul class="avisos">${avisos.map(a => `<li>${a}</li>`).join('')}</ul>` : ''}
         ${cal}
         <div class="grades">${blocos}</div>
@@ -479,6 +520,9 @@
       : `Média final simulada: <b style="color:${atinge ? 'var(--ok)' : 'var(--bad)'}">${n2(mf)}</b> · ${atinge ? 'atinge 6,0' : 'abaixo de 6,0'}<br><small>A simulação não considera a frequência.</small>`;
   }
   document.addEventListener('input', e => { if (e.target.classList && e.target.classList.contains('sim-in')) _simular(+e.target.dataset.card); });
+  const _abrirHist = el => { const h = document.getElementById('hist-' + el.dataset.hist); if (h) { h.hidden = !h.hidden; if (!h.hidden) h.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } };
+  document.addEventListener('click', e => { const g = e.target.closest && e.target.closest('[data-hist]'); if (g) _abrirHist(g); });
+  document.addEventListener('keydown', e => { const g = e.target.closest && e.target.closest('[data-hist]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); _abrirHist(g); } });
 
   // ── Chamada da aula prática ──
   function _agoraLocal() {
@@ -498,10 +542,25 @@
     box.innerHTML = _chamadas.map((ch, i) => `<div class="panel chamada">
       <div class="ch-tit">Aula prática · ${esc(String(ch.disciplina).split(' · ')[0])} · turma ${esc(ch.turma)}</div>
       <div class="ch-hor">Chamada aberta nas ${ch.dias.map(x => _DS[x]).join(' e ')}, das ${esc(ch.ini)} às ${esc(ch.fim)}</div>
+      <div class="ch-tempo" id="ch-tempo-${i}"></div>
       <button class="primary" type="button" id="ch-btn-${i}">Registrar presença</button>
       <div class="ch-msg" id="ch-msg-${i}" role="status" aria-live="polite"></div></div>`).join('');
     $('res').prepend(box);
     _chamadas.forEach((ch, i) => { $('ch-btn-' + i).onclick = () => _registrarPresenca(i); });
+    _tempoChamada(); clearInterval(window._relogioCh); window._relogioCh = setInterval(_tempoChamada, 30000);
+  }
+  // "A chamada fecha em 52 min": destaque na última hora, enquanto a presença não foi registrada
+  function _tempoChamada() {
+    const a = _agoraLocal(), [h, m] = a.hm.split(':').map(Number), agoraMin = h * 60 + m;
+    _chamadas.forEach((ch, i) => {
+      const el = $('ch-tempo-' + i), btn = $('ch-btn-' + i); if (!el) return;
+      const [fh, fm] = ch.fim.split(':').map(Number), resta = fh * 60 + fm - agoraMin;
+      const hoje = ch.dias.includes(a.dow) && a.hm >= ch.ini;
+      if (btn && btn.disabled && btn.textContent === 'Presença registrada') { el.className = 'ch-tempo'; el.textContent = ''; return; }
+      if (!hoje || resta < 0) { el.className = 'ch-tempo'; el.textContent = ''; return; }
+      if (resta <= 60) { el.className = 'ch-tempo urgente'; el.textContent = `⏰ A chamada fecha em ${resta} min. Se você está na aula, registre sua presença agora.`; }
+      else { el.className = 'ch-tempo'; el.textContent = `A chamada fica aberta até as ${ch.fim}.`; }
+    });
   }
   async function _registrarPresenca(i) {
     const ch = _chamadas[i], btn = $('ch-btn-' + i), msg = $('ch-msg-' + i);
@@ -510,8 +569,8 @@
       const r = await fetch(_chamURL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ acao: 'presenca', disc: ch.disc, sem: ch.sem, turma: ch.turma, mat: _cred.mat, cod: _cred.cod, ts: new Date().toISOString() }) });
       const j = await r.json();
-      if (j.status === 'registrado') { msg.className = 'ch-msg ok'; msg.textContent = `✓ Presença registrada às ${j.hora}.`; btn.textContent = 'Presença registrada'; return; }
-      if (j.status === 'duplicado') { msg.className = 'ch-msg ok'; msg.textContent = '✓ Sua presença de hoje já estava registrada.'; btn.textContent = 'Presença registrada'; return; }
+      if (j.status === 'registrado') { msg.className = 'ch-msg ok'; msg.textContent = `✓ Presença registrada às ${j.hora}.`; btn.textContent = 'Presença registrada'; _tempoChamada(); return; }
+      if (j.status === 'duplicado') { msg.className = 'ch-msg ok'; msg.textContent = '✓ Sua presença de hoje já estava registrada.'; btn.textContent = 'Presença registrada'; _tempoChamada(); return; }
       msg.className = 'ch-msg err'; msg.textContent = j.erro || 'Não foi possível registrar.';
     } catch (e) {
       msg.className = 'ch-msg err'; msg.textContent = navigator.onLine === false ? 'Sem internet. Conecte-se e tente de novo.' : 'O servidor da chamada não respondeu. Tente de novo.';

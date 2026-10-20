@@ -289,6 +289,7 @@
   .cc-pend { color: var(--muted); font-style: italic; }
   .cc-sem { color: var(--muted); opacity: .7; }
   .cc-nota { font-size: .76rem; color: var(--warn); margin: 4px 0; }
+  .cc-abono { background: #27c98f22; color: var(--accent2); font-weight: 700; }
   .cc-baixa { background: #3d8ef01f; color: var(--accent); font-style: italic; }
   .cc-baixa-aviso { font-size: .8rem; background: #f0a03018; border: 1px solid var(--warn); border-radius: 8px; padding: 8px 10px; margin: 6px 0; line-height: 1.8; }
   .cc-th { cursor: pointer; } .cc-th small { color: var(--warn); font-weight: 400; }
@@ -636,6 +637,8 @@
  *    Se você copiou pelo DiárioProf, a CHAVE já vem preenchida.
  * 2. Implantar → Gerenciar implantações → ✏ → Versão: Nova versão → Implantar (a URL continua a mesma).
  * 3. No DiárioProf, aba Diário → Chamada da prática: cole a URL e clique em "Enviar configuração".
+ * 4. Lembretes por e-mail (1 h antes do fim da aula, só para quem ainda não registrou):
+ *    no editor, escolha a função instalarLembretes no menu ao lado de "Executar" e clique em Executar (uma única vez).
  */
 const CHAVE = 'COLE_AQUI_A_CHAVE';
 const SPREADSHEET_ID = '19zhhPHu5v6UzW6is2E5fNU9YCTYb2HZC0s3hCLohD0U';
@@ -654,7 +657,7 @@ function tratar(e) {
     if (req.acao === 'presenca')  return resp(registrarPortal(req));
     if (req.acao === 'config')    return resp(salvarConfig(req));
     if (req.acao === 'registros') return resp(listarRegistros(req));
-    if (req.acao === 'teste')     return resp(req.chave === CHAVE ? { ok: true, agora: agora().txt } : { ok: false, erro: 'chave inválida' });
+    if (req.acao === 'teste')     return resp(req.chave === CHAVE ? { ok: true, agora: agora().txt, lembretes: lembretesAtivos() } : { ok: false, erro: 'chave inválida' });
     if (p.matricula && p.date)    return resp(registrarLegado(p));          // QR antigo (uma folha por data)
     return resp({ ok: true, servico: 'DiárioProf — chamada da prática', agora: agora().txt });
   } catch (err) {
@@ -766,6 +769,48 @@ function listarRegistros(req) {
                o: String(v[i][6] || 'qr_antigo'), disc: String(v[i][7] || ''), sem: String(v[i][8] || '') });
   }
   return { ok: true, registros: out, agora: agora().txt };
+}
+
+// ── Lembrete por e-mail: no horário configurado (1 h antes do fim da aula), só para quem ainda não registrou ──
+function lembretesAtivos() { return ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'enviarLembretes'); }
+function instalarLembretes() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'enviarLembretes').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('enviarLembretes').timeBased().everyMinutes(10).create();
+  return 'Lembretes agendados: verificação a cada 10 minutos.';
+}
+function somaMin(hm, m) {
+  const p = hm.split(':').map(Number), t = p[0] * 60 + p[1] + m;
+  return ('0' + Math.floor(t / 60)).slice(-2) + ':' + ('0' + (t % 60)).slice(-2);
+}
+function enviarLembretes() {
+  const a = agora(), props = PropertiesService.getScriptProperties();
+  const cfgs = abaConfig().getDataRange().getValues().slice(1).map(r => { try { return JSON.parse(r[1]); } catch (e) { return null; } }).filter(Boolean);
+  let hoje = null, enviados = 0;
+  cfgs.forEach(cfg => Object.keys(cfg.turmas || {}).forEach(tid => {
+    const t = cfg.turmas[tid];
+    if (!t.lembrete || t.dias.indexOf(a.dow) < 0) return;
+    if (a.hm < t.lembrete || a.hm >= somaMin(t.lembrete, 30)) return;          // janela de 30 min a partir do horário do lembrete
+    const marca = ['lemb', cfg.disc, cfg.sem, tid, a.data].join('|');
+    if (props.getProperty(marca)) return;                                       // no máximo um lembrete por turma por dia
+    props.setProperty(marca, '1');
+    if (!hoje) hoje = listarRegistros({ chave: CHAVE }).registros.filter(x => x.d === a.data);
+    const feitos = {};
+    hoje.forEach(x => { if ((x.disc === cfg.disc && x.t === tid) || (!x.disc && t.alunos[x.m])) feitos[x.m] = true; });   // conta também o QR antigo
+    Object.keys(t.alunos || {}).forEach(mat => {
+      const al = t.alunos[mat];
+      if (!al.e || feitos[mat]) return;
+      const pn = String(al.n || '').split(' ')[0], primeiro = pn.charAt(0) + pn.slice(1).toLowerCase(), disc = cfg.nome || cfg.disc;
+      MailApp.sendEmail({
+        to: al.e, name: 'Prof. Hugo José Ribeiro',
+        subject: 'Lembrete: registre sua presença — ' + disc,
+        body: 'Olá, ' + primeiro + '!\n\nSua aula prática de ' + disc + ' termina em cerca de 1 hora. ' +
+              'Se você está na aula, registre sua presença no Portal do Aluno' + (cfg.portal ? ':\n' + cfg.portal : '.') +
+              '\n\nA chamada fecha às ' + t.fim + '.\n\nProf. Hugo José Ribeiro\nEECA/UFG'
+      });
+      enviados++;
+    });
+  }));
+  return enviados;
 }
   </script>
   <div class="turma-selector" id="turma-sel-diario"></div>
@@ -1304,9 +1349,9 @@ if (typeof window.Chart === 'undefined') { window.Chart = function () { return {
 //  CATÁLOGO DE DISCIPLINAS
 // ══════════════════════════════════════════════════════════
 const DISC_DEFAULT = [
-  { id: 'EEC0274_Civil',     codigo: 'EEC0274', nome: 'Topografia e Geodésia', sufixo: 'Civil',     esquema: 'topo4',    ch: 96 },
-  { id: 'EEC0273_Ambiental', codigo: 'EEC0273', nome: 'Topografia e Geodésia', sufixo: 'Ambiental', esquema: 'topo4',    ch: 64 },
-  { id: 'EEC0296_SR',        codigo: 'EEC0296', nome: 'Sensoriamento Remoto',  sufixo: '',          esquema: 'sem1rel3', ch: 64 },
+  { id: 'EEC0274_Civil',     codigo: 'EEC0274', nome: 'Topografia e Geodésia', sufixo: 'Civil',     esquema: 'topo4',    ch: 96, hAula: 3 },
+  { id: 'EEC0273_Ambiental', codigo: 'EEC0273', nome: 'Topografia e Geodésia', sufixo: 'Ambiental', esquema: 'topo4',    ch: 64, hAula: 2 },
+  { id: 'EEC0296_SR',        codigo: 'EEC0296', nome: 'Sensoriamento Remoto',  sufixo: '',          esquema: 'sem1rel3', ch: 64, hAula: 2 },
 ];
 
 // ══════════════════════════════════════════════════════════
@@ -2065,6 +2110,7 @@ function normalizarDisciplinas() {
     const p = DISC_DEFAULT.find(x => x.id === d.id) || {};
     if (!d.esquema || !ESQUEMAS[d.esquema]) d.esquema = p.esquema || 'topo4';
     if (!(+d.ch > 0)) d.ch = p.ch || CH_PADRAO;
+    if (!(+d.hAula > 0)) d.hAula = p.hAula || 2;
   });
 }
 
@@ -2642,6 +2688,8 @@ function renderConfig() {
       </select>
       <label style="font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:4px" title="Carga horária total: base do percentual de faltas">CH
         <input type="number" min="1" max="400" value="${d.ch}" style="width:70px" onchange="setCH('${d.id}',this.value)"> h</label>
+      <label style="font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:4px" title="Duração de uma aula: o aluno vê as faltas em aulas">Aula
+        <input type="number" min="1" max="8" value="${d.hAula}" style="width:56px" onchange="setHAula('${d.id}',this.value)"> h</label>
       ${i >= DISC_DEFAULT.length
         ? `<button class="btn btn-danger btn-sm" onclick="removeDisc('${d.id}')">🗑</button>`
         : '<span style="font-size:.72rem;color:var(--muted)">padrão</span>'}
@@ -3071,6 +3119,18 @@ function _registrosContexto(discId, sk){
                      restanteH: fr.restanteH, importadoEm: fr.importadoEm } : null,
         aviso: dados.aviso && dados.aviso.texto ? { texto: dados.aviso.texto, em: dados.aviso.em } : null,
         datas: dados.datas || {}, pesos: pesosEsquema(discId),
+        hAula: +disc.hAula || null,
+        hist: (() => {    // histórico: SIGAA por data + registro da prática pelo QR
+          const fa = dados.freq && dados.freq.alunos && dados.freq.alunos[a.matricula];
+          const ch = dados.chamada && dados.chamada.turmas && dados.chamada.turmas[tid];
+          const regs = (dados.praticas && dados.praticas.regs) || [], folgas = dados.folgas || [];
+          const naTurma = new Set((t.alunos || []).map(x => x.matricula));
+          const pr = ch && ch.ativa ? {
+            datas: [...new Set(regs.filter(r => r.t === tid && naTurma.has(r.m)).map(r => r.d))].filter(x => !folgas.includes(x)).sort(),
+            registros: [...new Set(regs.filter(r => r.m === a.matricula && r.t === tid).map(r => r.d))].sort(),
+            folgas: folgas.slice().sort(), abonos: Object.keys((dados.abonos || {})[a.matricula] || {}).sort() } : null;
+          return (fa && fa.dias) || pr ? { dias: (fa && fa.dias) || null, pratica: pr } : null;
+        })(),
         chamada: (() => { const ch = dados.chamada && dados.chamada.turmas && dados.chamada.turmas[tid];
           return ch && ch.ativa ? { disc: discId, sem: sk, turma: tid, dias: ch.dias, ini: ch.ini, fim: ch.fim } : null; })()
       }});
@@ -3714,6 +3774,11 @@ async function setEsquema(id, valor) {
   if (!(await ui.confirmar(`Mudar o critério de avaliação de ${d.codigo} para "${ESQUEMAS[valor].nome}"?${aviso}`, { titulo: 'Critério de avaliação', ok: 'Mudar critério' }))) { renderConfig(); return; }
   d.esquema = valor; saveAll(); renderConfig(); toast('Critério atualizado.');
 }
+function setHAula(id, valor) {
+  const v = Math.round(+valor);
+  if (!(v >= 1 && v <= 8)) { ui.avisar('Informe a duração de uma aula em horas (entre 1 e 8).'); renderConfig(); return; }
+  _disc(id).hAula = v; saveAll(); toast(`Uma aula = ${v} h. O aluno vê as faltas em aulas.`);
+}
 function setCH(id, valor) {
   const v = Math.round(+valor);
   if (!(v >= 1 && v <= 400)) { ui.avisar('Informe a carga horária total em horas (entre 1 e 400).'); renderConfig(); return; }
@@ -4103,17 +4168,20 @@ function lerMapaPorData(paginas) {
 //  CHAMADA DA AULA PRÁTICA E CONCILIAÇÃO COM O SIGAA (v2.1)
 // ══════════════════════════════════════════════════════════
 const CHAMADA_PADRAO = {   // por disciplina: uma entrada por turma, na ordem das turmas
-  EEC0274_Civil:     [{ dias: [3], ini: '14:00', fim: '18:45', horasT: 3, horasP: 3 }],
-  EEC0273_Ambiental: [{ dias: [4], ini: '06:50', fim: '09:10', horasT: 0, horasP: 2 }, { dias: [4], ini: '10:30', fim: '12:50', horasT: 0, horasP: 2 }],
-  EEC0296_SR:        [{ dias: [4], ini: '13:40', fim: '15:55', horasT: 0, horasP: 2 }, { dias: [4], ini: '15:55', fim: '18:00', horasT: 0, horasP: 2 }],
+  EEC0274_Civil:     [{ dias: [3], ini: '14:00', fim: '18:45', horasT: 3, horasP: 3, lembrete: '17:30' }],
+  EEC0273_Ambiental: [{ dias: [4], ini: '06:50', fim: '09:10', horasT: 0, horasP: 2, lembrete: '07:50' }, { dias: [4], ini: '10:30', fim: '12:50', horasT: 0, horasP: 2, lembrete: '11:30' }],
+  EEC0296_SR:        [{ dias: [4], ini: '13:40', fim: '15:55', horasT: 0, horasP: 2, lembrete: '14:40' }, { dias: [4], ini: '15:55', fim: '18:00', horasT: 0, horasP: 2, lembrete: '16:40' }],
 };
 const _DSEM = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 function chamadaCfg() {
   const d = ctxData(); if (!d.chamada) d.chamada = { turmas: {} };
   const pad = CHAMADA_PADRAO[ctx.discId] || [];
   Object.keys(ctxTurmas()).forEach((t, i) => {
-    if (d.chamada.turmas[t]) return;
-    const base = pad[Math.min(i, pad.length - 1)] || { dias: [3], ini: '14:00', fim: '18:45', horasT: 0, horasP: 2 };
+    if (d.chamada.turmas[t]) {   // configuração anterior à v2.3: recebe o horário padrão do lembrete
+      if (d.chamada.turmas[t].lembrete === undefined) d.chamada.turmas[t].lembrete = (pad[Math.min(i, pad.length - 1)] || {}).lembrete || '';
+      return;
+    }
+    const base = pad[Math.min(i, pad.length - 1)] || { dias: [3], ini: '14:00', fim: '18:45', horasT: 0, horasP: 2, lembrete: '' };
     d.chamada.turmas[t] = { ativa: i < pad.length, ...JSON.parse(JSON.stringify(base)) };
   });
   return d.chamada;
@@ -4135,7 +4203,8 @@ function renderChamada() {
   const cfg = chamadaCfg(), u = document.getElementById('cham-url');
   if (u && document.activeElement !== u) u.value = _chamadaURL();
   box.innerHTML = `<table><thead><tr><th>Ativa</th><th style="text-align:left">Turma</th><th>Dias</th><th>Abre</th><th>Fecha</th>
-      <th title="Horas de teoria no mesmo dia da prática (0 se a prática é em outro dia)">Teoria no dia (h)</th><th>Prática (h)</th></tr></thead><tbody>${
+      <th title="Horas de teoria no mesmo dia da prática (0 se a prática é em outro dia)">Teoria no dia (h)</th><th>Prática (h)</th>
+      <th title="E-mail para quem ainda não registrou presença. Em branco: sem lembrete.">Lembrete (e-mail)</th></tr></thead><tbody>${
     Object.entries(cfg.turmas).filter(([t]) => ctxTurmas()[t]).map(([t, c]) => `<tr>
       <td style="text-align:center"><input type="checkbox" ${c.ativa ? 'checked' : ''} onchange="_setCham('${t}','ativa',this.checked)"></td>
       <td><b>${t}</b> <span style="color:var(--muted);font-size:.75rem">(${ctxTurmas()[t].alunos.length})</span></td>
@@ -4143,7 +4212,8 @@ function renderChamada() {
       <td><input type="time" value="${c.ini}" onchange="_setCham('${t}','ini',this.value)"></td>
       <td><input type="time" value="${c.fim}" onchange="_setCham('${t}','fim',this.value)"></td>
       <td><input type="number" min="0" max="8" value="${c.horasT}" style="width:56px" onchange="_setCham('${t}','horasT',+this.value)"></td>
-      <td><input type="number" min="1" max="8" value="${c.horasP}" style="width:56px" onchange="_setCham('${t}','horasP',+this.value)"></td></tr>`).join('')}</tbody></table>`;
+      <td><input type="number" min="1" max="8" value="${c.horasP}" style="width:56px" onchange="_setCham('${t}','horasP',+this.value)"></td>
+      <td><input type="time" value="${c.lembrete || ''}" onchange="_setCham('${t}','lembrete',this.value)"></td></tr>`).join('')}</tbody></table>`;
   const pr = ctxData().praticas;
   document.getElementById('cham-info').textContent = pr ? `Registros buscados em ${_fmtDH(pr.buscadoEm)}: ${pr.regs.length} nesta disciplina.` : 'Registros ainda não buscados.';
 }
@@ -4159,7 +4229,11 @@ function _logCham(html) { const el = document.getElementById('cham-log'); if (el
 async function testarChamada() {
   _logCham('Testando…');
   try { const r = await _postChamada({ acao: 'teste', chave: _chaveServicos() });
-    _logCham(r.ok ? `<span style="color:var(--accent2)">✓ Conectado. Relógio do servidor: ${_esc(r.agora)}.</span>` : `<span style="color:var(--danger)">⚠ ${_esc(r.erro)}</span>`);
+    const querLembrete = Object.values(chamadaCfg().turmas).some(t => t.ativa && t.lembrete);
+    _logCham(!r.ok ? `<span style="color:var(--danger)">⚠ ${_esc(r.erro)}</span>`
+      : `<span style="color:var(--accent2)">✓ Conectado. Relógio do servidor: ${_esc(r.agora)}.</span>` +
+        (r.lembretes === false && querLembrete ? `<br><span style="color:var(--warn)">⚠ Lembretes por e-mail ainda não agendados: no editor do Apps Script, escolha <b>instalarLembretes</b> e clique em Executar (uma vez).</span>`
+         : r.lembretes ? ' <span style="color:var(--accent2)">Lembretes por e-mail agendados.</span>' : ''));
   } catch (e) { _logCham(`<span style="color:var(--danger)">⚠ ${_esc(e.message)}</span>`); }
 }
 // Envia ao servidor as turmas, horários e verificadores dos códigos (o servidor nunca recebe os códigos)
@@ -4172,10 +4246,15 @@ async function enviarConfigChamada(silencioso = false) {
     for (const [tid, c] of Object.entries(ch)) {
       if (!c.ativa || !dados.turmas || !dados.turmas[tid]) continue;
       const alunos = {};
-      for (const a of dados.turmas[tid].alunos) alunos[a.matricula] = { n: a.nome, v: await _sha256Hex(p.salt + ':' + a.matricula + ':' + codigoAluno(a.matricula)) };
-      turmas[tid] = { dias: c.dias, ini: c.ini, fim: c.fim, alunos };
+      for (const a of dados.turmas[tid].alunos) {
+        alunos[a.matricula] = { n: a.nome, v: await _sha256Hex(p.salt + ':' + a.matricula + ':' + codigoAluno(a.matricula)) };
+        if (c.lembrete && (p.emails || {})[a.matricula]) alunos[a.matricula].e = p.emails[a.matricula];   // e-mail só se houver lembrete
+      }
+      turmas[tid] = { dias: c.dias, ini: c.ini, fim: c.fim, lembrete: c.lembrete || '', alunos };
     }
-    if (Object.keys(turmas).length) contextos.push({ disc: discId, sem: sk, salt: p.salt, turmas });
+    const dd = _disc(discId);
+    if (Object.keys(turmas).length) contextos.push({ disc: discId, sem: sk, salt: p.salt, turmas,
+      nome: `${dd.codigo} · ${dd.nome}${dd.sufixo ? ' — ' + dd.sufixo : ''}`, portal: portalURL() || '' });
   }
   if (!contextos.length) { if (!silencioso) ui.avisar('Nenhuma turma com chamada ativa.', { titulo: 'Chamada da prática' }); return false; }
   try {
@@ -4262,10 +4341,28 @@ function calcularConciliacao(tid) {
   return { lista, info, linhas: alunos.map(a => ({ a, cels: lista.map(d => {
     const dias = f && f.alunos && f.alunos[a.matricula] && f.alunos[a.matricula].dias, v = dias ? dias[d] : undefined;
     if (info[d].folga) return _regraFolga(v, c.horasT, c.horasP);    // folga: a prática conta como presença para todos
-    const x = _regraConciliacao(v, info[d].n > 0, !!(pres[d] && pres[d].has(a.matricula)), c.horasT, c.horasP);
+    const ab = d0.abonos && d0.abonos[a.matricula] && d0.abonos[a.matricula][d];       // presença confirmada pelo professor
+    const x = _regraConciliacao(v, info[d].n > 0, !!(pres[d] && pres[d].has(a.matricula)) || !!ab, c.horasT, c.horasP);
+    if (ab) { x.abono = ab; return x; }
     if (info[d].baixa && (x.tipo === 'alterar' || x.tipo === 'conflito' || x.tipo === 'conferir')) return { ...x, tipo: 'baixa' };
     return x;
   }) })), semRegistro: lista.filter(d => !info[d].n && !info[d].folga) };
+}
+async function abonarCelula(tid, m, d) {
+  const d0 = ctxData(), ab = d0.abonos && d0.abonos[m] && d0.abonos[m][d];
+  const a = (ctxTurmas()[tid].alunos || []).find(x => x.matricula === m) || { nome: m };
+  if (ab) {
+    if (!(await ui.confirmar(`Desfazer a presença confirmada de ${a.nome} em ${_dm(d)}?${ab.motivo ? '\n\nJustificativa registrada: ' + ab.motivo : ''}`,
+      { titulo: 'Presença confirmada', ok: 'Desfazer' }))) return;
+    delete d0.abonos[m][d]; if (!Object.keys(d0.abonos[m]).length) delete d0.abonos[m];
+  } else {
+    const motivo = await ui.pedir(`${a.nome} esteve presente na aula prática de ${_dm(d)}, mesmo sem registro pelo QR?\n\nJustificativa (opcional), por exemplo: "esqueceu de registrar, confirmado em aula".`,
+      '', { titulo: 'Confirmar presença na prática', ok: 'Confirmar presença' });
+    if (motivo === null) return;
+    d0.abonos = d0.abonos || {}; d0.abonos[m] = d0.abonos[m] || {};
+    d0.abonos[m][d] = { motivo: motivo.trim(), em: new Date().toISOString() };
+  }
+  saveAll(); renderConciliacao(); toast(ab ? 'Confirmação desfeita.' : 'Presença confirmada.');
 }
 function marcarFolga(d, on) {
   const d0 = ctxData();
@@ -4306,7 +4403,14 @@ function renderConciliacao() {
       }
       if (x.tipo === 'alterar') nAlt++; if (x.tipo === 'conflito' || x.tipo === 'conferir') nConf++; if (x.tipo === 'pendente') nPend++; if (x.tipo === 'baixa') nBaixa++;
     }));
-    const cel = x => x.tipo === 'alterar' ? `<td class="cc-alt" title="Lançar ${x.alvo}">${x.v === null ? '—' : x.v}→${x.alvo}</td>`
+    const cel = (x, m, d) => {
+      const h = celBase(x);
+      if (x.tipo === 'sem' || x.tipo === 'folga') return h;
+      const clique = ` onclick="abonarCelula('${tid}','${m}','${d}')" style="cursor:pointer"`;
+      if (x.abono && x.tipo === 'ok') return `<td class="cc-abono"${clique} title="Presença confirmada pelo professor${x.abono.motivo ? ': ' + _esc(x.abono.motivo) : ''}">${x.v === undefined || x.v === null ? '' : x.v} ✓</td>`;
+      return h.replace('<td', '<td' + clique);
+    };
+    const celBase = x => x.tipo === 'alterar' ? `<td class="cc-alt" title="Lançar ${x.alvo}">${x.v === null ? '—' : x.v}→${x.alvo}</td>`
       : x.tipo === 'conflito' ? `<td class="cc-conf" title="O SIGAA tem ${x.v} h de falta, mas houve registro de presença na prática. Sugestão: ${x.alvo}. Confira.">${x.v}→${x.alvo}?</td>`
       : x.tipo === 'conferir' ? `<td class="cc-conf" title="${x.motivo ? 'Falta de prática lançada numa folga: deve voltar a ' + x.alvo : 'Valor fora do padrão: confira'}">${x.v}${x.alvo !== null && x.alvo !== undefined ? '→' + x.alvo : ''}?</td>`
       : x.tipo === 'pendente' ? `<td class="cc-pend" title="Teoria ainda não lançada no SIGAA; prática: ${x.presente ? 'presente' : 'faltou'}">${x.presente ? 'P' : 'F'}</td>`
@@ -4323,13 +4427,13 @@ function renderConciliacao() {
         <button class="btn btn-ghost btn-sm" onclick="marcarFolga('${d}', false)">Desfazer</button></div>`).join('')}
       <div class="table-wrap"><table class="cc-tab"><thead><tr><th style="text-align:left">Aluno</th>${R.lista.map(d =>
         `<th class="cc-th" onclick="alternarFolgaData('${d}')" title="Clique para marcar ou desfazer folga">${_dm(d)}${R.info[d].folga ? '<br><small>folga</small>' : R.info[d].baixa ? '<br><small>⚠ ' + R.info[d].n + '/' + R.info[d].total + '</small>' : ''}</th>`).join('')}</tr></thead><tbody>
-      ${R.linhas.map(L => `<tr><td style="white-space:nowrap">${_esc(L.a.nome.split(' ').slice(0, 3).join(' '))}</td>${L.cels.map(cel).join('')}</tr>`).join('')}</tbody></table></div>
+      ${R.linhas.map(L => `<tr><td style="white-space:nowrap">${_esc(L.a.nome.split(' ').slice(0, 3).join(' '))}</td>${L.cels.map((x, i) => cel(x, L.a.matricula, R.lista[i])).join('')}</tr>`).join('')}</tbody></table></div>
       ${Object.keys(porData).length ? `<div class="cc-lista"><b>O que lançar no SIGAA (turma ${tid}):</b>${Object.keys(porData).sort().map(d => `<div><b>${_dm(d)}</b>: ${porData[d].map(({ a, x }) =>
         `${_esc(a.nome)} <span class="${x.tipo === 'alterar' ? 'cc-t-alt' : 'cc-t-conf'}">${x.v === null ? '—' : x.v} → ${x.alvo === null ? '?' : x.alvo}${x.tipo !== 'alterar' ? ' (conferir)' : ''}</span>`).join('; ')}</div>`).join('')}</div>`
         : '<p style="color:var(--accent2)">✓ Nada a alterar no SIGAA nesta turma.</p>'}`);
   });
   div.innerHTML = `<p style="font-size:.82rem">${nAlt} alteração(ões) a lançar · ${nConf} para conferir · ${nPend} aguardando a chamada da teoria${nBaixa ? ` · <b style="color:var(--warn)">${nBaixa} aguardando você confirmar se houve prática</b>` : ''}.
-    <span style="color:var(--muted)">Legenda: <span class="cc-alt" style="padding:0 4px">0→3</span> lançar · <span class="cc-conf" style="padding:0 4px">6→3?</span> conferir · <span class="cc-pend" style="padding:0 4px">P/F</span> prática registrada, teoria ainda não lançada.</span></p>` + blocos.join('');
+    <span style="color:var(--muted)">Legenda: <span class="cc-alt" style="padding:0 4px">0→3</span> lançar · <span class="cc-conf" style="padding:0 4px">6→3?</span> conferir · <span class="cc-pend" style="padding:0 4px">P/F</span> prática registrada, teoria ainda não lançada · <span class="cc-abono" style="padding:0 4px">0 ✓</span> presença confirmada por você. Clique numa célula para confirmar a presença de um aluno.</span></p>` + blocos.join('');
   div.dataset.csv = csv.map(r => r.join(';')).join('\n');
 }
 function baixarConciliacaoCSV() {
