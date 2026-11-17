@@ -303,6 +303,10 @@
   .cc-lista { font-size: .8rem; line-height: 1.6; margin-top: 8px; }
   .cc-t-alt { color: var(--warn); font-weight: 700; } .cc-t-conf { color: var(--danger); font-weight: 700; }
   #tab-diario h4 { margin: 12px 0 6px; font-size: .9rem; }
+  .aviso-token { font-size: .8rem; line-height: 1.6; color: var(--text); background: #e0555518; border: 1px solid var(--danger);
+                 border-radius: 8px; padding: 10px 12px; }
+  .aviso-token .tk-tit { color: var(--danger); }
+  .aviso-token ol { margin: 6px 0 0 18px; } .aviso-token a { color: var(--accent); }
   .dc-prox { font-size: .72rem; color: var(--accent); margin: 2px 0 4px; }
   .dc-selo { display: inline-block; margin-left: 8px; font-size: .64rem; font-weight: 700; color: var(--warn);
              border: 1px solid var(--warn); border-radius: 20px; padding: 0 8px; letter-spacing: 0; text-transform: none; }
@@ -1167,6 +1171,7 @@ function resp(o) {
         <button class="btn btn-primary btn-sm" onclick="sincronizarAgora()">🔄 Sincronizar agora</button>
         <button class="btn btn-ghost btn-sm" onclick="loadGist()">⬇ Carregar do Gist</button>
       </div>
+      <div id="gist-token-aviso"></div>
       <span id="gist-status" style="font-size:.75rem;color:var(--muted)"></span>
       <div id="gist-info" style="font-size:.75rem;color:var(--muted);line-height:1.5"></div>
     </div>
@@ -1286,7 +1291,7 @@ function resp(o) {
 </div>
 
 <!-- INDICADOR DE SINCRONIZAÇÃO -->
-<button type="button" id="sync-ind" class="sync-ind mut" onclick="sincronizarAgora()" title="Clique para sincronizar">Local (sem sync remoto)</button>
+<button type="button" id="sync-ind" class="sync-ind mut" onclick="this.dataset.estado === 'token' ? irParaToken() : sincronizarAgora()" title="Clique para sincronizar">Local (sem sync remoto)</button>
 
 <!-- DIÁLOGO PADRÃO (substitui alert/confirm/prompt) -->
 <div class="modal-backdrop" id="modal-dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-titulo" style="z-index:600">
@@ -1708,6 +1713,25 @@ async function loadGist() {
   } catch(e) { setSyncIndicador('erro', e.message || String(e)); }
 }
 
+// ── Token do GitHub expirado ou revogado (HTTP 401) ──
+const TOKEN_NOVO_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=DiarioProf';
+function _ehErroToken(msg) { return /HTTP 401|Bad credentials|Requires authentication/i.test(String(msg || '')); }
+function _msgToken() { return 'O token do GitHub expirou ou foi revogado. Gere um novo token (escopo gist) e cole em ⚙ Config → Sincronização GitHub Gist.'; }
+function renderAvisoToken() {
+  const el = document.getElementById('gist-token-aviso'); if (!el) return;
+  if (localStorage.getItem('diarioprof_token_invalido') !== '1') { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="aviso-token"><b class="tk-tit">O token do GitHub expirou ou foi revogado</b> (o GitHub respondeu HTTP 401).
+    Seus dados continuam salvos neste aparelho e serão enviados assim que houver um token válido.
+    <ol><li><a href="${TOKEN_NOVO_URL}" target="_blank" rel="noopener">Gere um novo token clássico</a> com o escopo <b>gist</b> (o link já marca o escopo). Escolha uma validade e anote a data.</li>
+    <li>Cole o token no campo acima e clique em <b>Sincronizar agora</b>.</li>
+    <li>Nos outros aparelhos, use <b>Configurar outro dispositivo</b>, mais abaixo, em vez de colar o token em cada um.</li></ol></div>`;
+}
+function irParaToken() {
+  if (typeof switchToApp === 'function' && !document.getElementById('tela-app')?.classList.contains('active')) switchToApp('config');
+  else switchTab('config', document.querySelector('.tab-btn[data-tab="config"]'));
+  setTimeout(() => { const t = document.getElementById('gist-token'); if (t) { t.scrollIntoView({ block: 'center' }); t.focus(); t.select(); } }, 150);
+}
+
 function setGistStatus(msg) {
   const el = document.getElementById('gist-status');
   if (el) el.textContent = msg;
@@ -1725,8 +1749,13 @@ function setSyncIndicador(estado, detalhe = '') {
     verificando: ['mut',  '↻ Verificando Gist…'],
     erro:        ['err',  '⚠ Falha — Gist'],
     offline:     ['warn', '○ Sem internet · salvo no aparelho'],
+    token:       ['err',  '⚠ Token do GitHub expirado · clique'],
   };
   if (estado === 'erro' && navigator.onLine === false) estado = 'offline';
+  if (estado === 'erro' && _ehErroToken(detalhe)) { estado = 'token'; detalhe = _msgToken(); }
+  if (estado === 'token') localStorage.setItem('diarioprof_token_invalido', '1');
+  if (estado === 'ok') localStorage.removeItem('diarioprof_token_invalido');
+  renderAvisoToken();
   const [cls, txt] = map[estado] || map.local;
   if (el) {
     el.className = 'sync-ind ' + cls;
@@ -1734,7 +1763,7 @@ function setSyncIndicador(estado, detalhe = '') {
     el.title = (detalhe ? detalhe + ' — ' : '') + 'Clique para sincronizar';
     el.dataset.estado = estado;
   }
-  setGistStatus(txt + (detalhe ? ' — ' + detalhe : ''));
+  setGistStatus(estado === 'token' ? '' : txt + (detalhe ? ' — ' + detalhe : ''));   // o aviso acima já explica
 }
 
 function renderInfoGist() {
@@ -3220,6 +3249,7 @@ async function publicarPortal(incluir, opts = {}){
       : await fetch('https://api.github.com/gists', { method:'POST', headers,
           body: JSON.stringify({ files, public:false, description:'DiárioProf — Portal do Aluno (dados criptografados)' }) });
     const d = await r.json();
+    if (r.status === 401) { setSyncIndicador('token'); throw new Error(_msgToken()); }
     if (!r.ok) throw new Error(d.message || ('HTTP ' + r.status));
     p.gistId = d.id;
     p.owner  = (d.owner && d.owner.login) || p.owner;
@@ -3970,6 +4000,7 @@ async function listarVersoes() {
   div.innerHTML = '<span style="color:var(--muted);font-size:.8rem">Carregando…</span>';
   try {
     const r = await fetchWithTimeout(`https://api.github.com/gists/${id}/commits?per_page=40`, { headers: _hdr(token) });
+    if (r.status === 401) { setSyncIndicador('token'); throw new Error(_msgToken()); }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const vs = await r.json();
     div.innerHTML = vs.length ? `<div class="table-wrap" style="max-height:340px;overflow-y:auto"><table><thead><tr>
@@ -4544,7 +4575,7 @@ function switchTab(name, btn) {
   if (name === 'analytics') renderAnalytics();
   if (name === 'portal')    renderPortal();
   renderAvisoPortal();
-  if (name === 'config')    { renderConfig(); renderInstalacao(); _aplicarTemaMeta(); }
+  if (name === 'config')    { renderConfig(); renderInstalacao(); _aplicarTemaMeta(); renderAvisoToken(); }
   if (name === 'importar')  renderAlunosMgr();
 }
 
