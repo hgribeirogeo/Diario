@@ -1160,7 +1160,7 @@ function resp(o) {
     <div class="card-title">Sincronização GitHub Gist</div>
     <div style="display:flex;flex-direction:column;gap:10px;max-width:500px">
       <label style="font-size:.8rem;color:var(--muted)">Token do GitHub (classic, escopo gist)
-        <input type="password" id="gist-token" placeholder="ghp_..." style="width:100%;margin-top:4px"
+        <input type="text" id="gist-token" placeholder="ghp_..." autocomplete="off" spellcheck="false" data-lpignore="true" style="width:100%;margin-top:4px;-webkit-text-security:disc"
                oninput="localStorage.setItem('diarioprof_gist_token',this.value)">
       </label>
       <label style="font-size:.8rem;color:var(--muted)">Gist ID (deixe vazio para criar novo)
